@@ -107,6 +107,7 @@ struct AcDraw {
     float      track;
     lv_color_t color;
     bool       emergency;
+    bool       military;
     bool       inRange;
     char       hex[8];
     char       call[12];
@@ -860,6 +861,7 @@ void update(const std::vector<Aircraft> &aircraft, const RadarSettings &s) {
         d.track = ac.track;
         d.color = alt_color(ac.altBaro, ac.onGround);
         d.emergency = acIsEmergency(ac.squawk);
+        d.military  = ac.military;
         snprintf(d.hex,      sizeof(d.hex),      "%s", ac.hex.c_str());
         snprintf(d.call,     sizeof(d.call),     "%s", ac.flight.c_str());
         snprintf(d.type,     sizeof(d.type),     "%s", ac.type.c_str());
