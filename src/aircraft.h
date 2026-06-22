@@ -14,6 +14,7 @@ struct Aircraft {
     String   hex;            // ICAO 24-bit id (stable key)
     String   flight;         // callsign
     String   type;           // e.g. "B738" (when available)
+    String   category;       // ADS-B emitter category e.g. "A1".."A7", "B1".."B2"
     double   lat = 0, lon = 0;
     float    altBaro = 0;    // ft (NAN if on ground)
     bool     onGround = false;

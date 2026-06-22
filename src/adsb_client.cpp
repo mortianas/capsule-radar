@@ -65,7 +65,7 @@ bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
     const char* keys[] = { "ac", "aircraft" };
     const char* flds[] = { "hex", "flight", "t", "lat", "lon", "alt_baro",
                            "track", "true_heading", "gs", "baro_rate",
-                           "squawk", "seen_pos", "dbFlags" };
+                           "squawk", "seen_pos", "dbFlags", "category" };
     for (const char* k : keys)
         for (const char* f : flds)
             filter[k][0][f] = true;
@@ -103,7 +103,8 @@ bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
         ac.baroRate = a["baro_rate"] | NAN;
         ac.squawk   = a["squawk"].is<const char*>() ? atoi(a["squawk"]) : (a["squawk"] | -1);
         ac.seenPos  = a["seen_pos"] | 0;
-        ac.military = ((a["dbFlags"] | 0u) & 0x1) != 0;
+        ac.military  = ((a["dbFlags"] | 0u) & 0x1) != 0;
+        ac.category  = (const char*)(a["category"] | "");
         ac.lastUpdateMs = now;
 
         tmp.push_back(std::move(ac));

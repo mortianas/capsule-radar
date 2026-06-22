@@ -111,6 +111,7 @@ struct AcDraw {
     char       hex[8];
     char       call[12];
     char       type[8];
+    char       category[4];
     char       altTxt[12];
     float      altFt;
     bool       onGround;
@@ -120,9 +121,6 @@ struct AcDraw {
 };
 static std::vector<AcDraw> s_acs;
 static std::map<std::string, std::vector<lv_point_t>> s_trails;
-
-static const float GX[4] = { 0.0f,  7.0f, 0.0f, -7.0f };
-static const float GY[4] = { -11.0f, 5.0f, 8.0f, 5.0f };
 
 static inline bool orb() { return s_theme == THEME_ORB; }
 
@@ -432,6 +430,130 @@ static void draw_offrange(lv_draw_ctx_t *d, const AcDraw &ac) {
     lv_draw_polygon(d, &td, tri, 3);
 }
 
+static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
+    const float deg = (ac.track != ac.track) ? 0.0f : ac.track;
+    const lv_coord_t ox = ac.pos.x, oy = ac.pos.y;
+
+    // Resolve shape and colour from category
+    int shape = 0; // 0=arrowhead, 1=ga, 2=turboprop, 3=narrowbody, 4=widebody, 5=heli
+    lv_color_t col = ac.color;
+    const char *cat = ac.category;
+    if (cat[0] == 'A') {
+        const int n = (cat[1] >= '1' && cat[1] <= '9') ? (cat[1] - '0') : 0;
+        if      (n == 1 || n == 2) { shape = 1; col = lv_color_hex(0x3CE0FF); }
+        else if (n == 3)           { shape = 2; col = lv_color_hex(0xC8FF3C); }
+        else if (n == 4 || n == 5) { shape = 3; col = lv_color_hex(0xEAFFF3); }
+        else if (n == 6 || n == 7) { shape = 4; col = lv_color_hex(0xEAFFF3); }
+    } else if (cat[0] == 'B' && (cat[1] == '1' || cat[1] == '2')) {
+        shape = 5; col = lv_color_hex(0xFFE11A);
+    }
+    if (ac.military) col = lv_color_hex(0xFF5A3C);
+
+    lv_draw_rect_dsc_t g;
+    lv_draw_rect_dsc_init(&g);
+    g.bg_color = col;
+    g.bg_opa = LV_OPA_COVER;
+
+    if (shape == 5) {
+        // Helicopter: rotor disc outline + tiny body + tail boom
+        lv_draw_arc_dsc_t rd;
+        lv_draw_arc_dsc_init(&rd);
+        rd.color = col; rd.width = 2; rd.opa = LV_OPA_COVER;
+        lv_draw_arc(d, &rd, &ac.pos, 11, 0, 360);
+        lv_point_t body[4] = {
+            rot_pt( 0, -4, deg, ox, oy), rot_pt( 3,  1, deg, ox, oy),
+            rot_pt( 0,  5, deg, ox, oy), rot_pt(-3,  1, deg, ox, oy),
+        };
+        lv_draw_polygon(d, &g, body, 4);
+        lv_draw_line_dsc_t tl;
+        lv_draw_line_dsc_init(&tl);
+        tl.color = col; tl.width = 2; tl.opa = LV_OPA_COVER;
+        lv_point_t b1 = rot_pt(0,  5, deg, ox, oy);
+        lv_point_t b2 = rot_pt(0, 14, deg, ox, oy);
+        lv_draw_line(d, &tl, &b1, &b2);
+        lv_point_t tr1 = rot_pt(-3, 13, deg, ox, oy);
+        lv_point_t tr2 = rot_pt( 3, 13, deg, ox, oy);
+        lv_draw_line(d, &tl, &tr1, &tr2);
+        return;
+    }
+
+    if (shape == 0) {
+        // Arrowhead fallback
+        lv_point_t pts[4] = {
+            rot_pt( 0, -11, deg, ox, oy), rot_pt( 7,   5, deg, ox, oy),
+            rot_pt( 0,   8, deg, ox, oy), rot_pt(-7,   5, deg, ox, oy),
+        };
+        lv_draw_polygon(d, &g, pts, 4);
+        return;
+    }
+
+    // shapes 1-4: fuselage + wings + tail fin
+    {
+        lv_point_t fuse[6] = {
+            rot_pt( 0, -11, deg, ox, oy), rot_pt( 2,  -7, deg, ox, oy),
+            rot_pt( 2,   8, deg, ox, oy), rot_pt( 0,  11, deg, ox, oy),
+            rot_pt(-2,   8, deg, ox, oy), rot_pt(-2,  -7, deg, ox, oy),
+        };
+        lv_draw_polygon(d, &g, fuse, 6);
+    }
+
+    if (shape == 1) {
+        // GA: straight high-wing
+        lv_point_t wing[4] = {
+            rot_pt(-10, -3, deg, ox, oy), rot_pt( 10, -3, deg, ox, oy),
+            rot_pt( 10,  0, deg, ox, oy), rot_pt(-10,  0, deg, ox, oy),
+        };
+        lv_draw_polygon(d, &g, wing, 4);
+        lv_point_t tail[4] = {
+            rot_pt(-5,  7, deg, ox, oy), rot_pt( 5,  7, deg, ox, oy),
+            rot_pt( 5, 10, deg, ox, oy), rot_pt(-5, 10, deg, ox, oy),
+        };
+        lv_draw_polygon(d, &g, tail, 4);
+    } else if (shape == 2) {
+        // Turboprop: wider straight wings
+        lv_point_t wing[4] = {
+            rot_pt(-13, -2, deg, ox, oy), rot_pt( 13, -2, deg, ox, oy),
+            rot_pt( 13,  2, deg, ox, oy), rot_pt(-13,  2, deg, ox, oy),
+        };
+        lv_draw_polygon(d, &g, wing, 4);
+        lv_point_t tail[4] = {
+            rot_pt(-6,  7, deg, ox, oy), rot_pt( 6,  7, deg, ox, oy),
+            rot_pt( 6, 10, deg, ox, oy), rot_pt(-6, 10, deg, ox, oy),
+        };
+        lv_draw_polygon(d, &g, tail, 4);
+    } else if (shape == 3) {
+        // Narrow-body jet: swept wings
+        lv_point_t wing[6] = {
+            rot_pt(  0, -3, deg, ox, oy), rot_pt( 11,  7, deg, ox, oy),
+            rot_pt(  8,  9, deg, ox, oy), rot_pt(  0,  1, deg, ox, oy),
+            rot_pt( -8,  9, deg, ox, oy), rot_pt(-11,  7, deg, ox, oy),
+        };
+        lv_draw_polygon(d, &g, wing, 6);
+        lv_point_t tail[4] = {
+            rot_pt(-4,  8, deg, ox, oy), rot_pt( 4,  8, deg, ox, oy),
+            rot_pt( 3, 11, deg, ox, oy), rot_pt(-3, 11, deg, ox, oy),
+        };
+        lv_draw_polygon(d, &g, tail, 4);
+    } else {
+        // Wide-body heavy: broader swept wings + faint outer ring
+        lv_point_t wing[6] = {
+            rot_pt(  0, -3, deg, ox, oy), rot_pt( 14,  7, deg, ox, oy),
+            rot_pt( 11,  9, deg, ox, oy), rot_pt(  0,  1, deg, ox, oy),
+            rot_pt(-11,  9, deg, ox, oy), rot_pt(-14,  7, deg, ox, oy),
+        };
+        lv_draw_polygon(d, &g, wing, 6);
+        lv_point_t tail[4] = {
+            rot_pt(-5,  8, deg, ox, oy), rot_pt( 5,  8, deg, ox, oy),
+            rot_pt( 4, 11, deg, ox, oy), rot_pt(-4, 11, deg, ox, oy),
+        };
+        lv_draw_polygon(d, &g, tail, 4);
+        lv_draw_arc_dsc_t ha;
+        lv_draw_arc_dsc_init(&ha);
+        ha.color = col; ha.width = 1; ha.opa = 140;
+        lv_draw_arc(d, &ha, &ac.pos, 18, 0, 360);
+    }
+}
+
 static void ac_draw_cb(lv_event_t *e) {
     lv_draw_ctx_t *d = lv_event_get_draw_ctx(e);
     const bool drg = orb();
@@ -452,20 +574,7 @@ static void ac_draw_cb(lv_event_t *e) {
         } else {
             if (!ac.inRange) continue;            // phosphor shows in-range traffic only
             draw_trail(d, ac, ac.color);
-            const float th = ((ac.track != ac.track) ? 0.0f : ac.track) * (float)M_PI / 180.0f;
-            const float c = cosf(th), s = sinf(th);
-            lv_point_t pts[4];
-            for (int i = 0; i < 4; ++i) {
-                const float x = GX[i] * c - GY[i] * s;
-                const float y = GX[i] * s + GY[i] * c;
-                pts[i].x = (lv_coord_t)(ac.pos.x + (lv_coord_t)lroundf(x));
-                pts[i].y = (lv_coord_t)(ac.pos.y + (lv_coord_t)lroundf(y));
-            }
-            lv_draw_rect_dsc_t g;
-            lv_draw_rect_dsc_init(&g);
-            g.bg_color = ac.color;
-            g.bg_opa = LV_OPA_COVER;
-            lv_draw_polygon(d, &g, pts, 4);
+            draw_aircraft_icon(d, ac);
             if (ac.emergency) {
                 lv_draw_arc_dsc_t h;
                 lv_draw_arc_dsc_init(&h);
@@ -751,9 +860,10 @@ void update(const std::vector<Aircraft> &aircraft, const RadarSettings &s) {
         d.track = ac.track;
         d.color = alt_color(ac.altBaro, ac.onGround);
         d.emergency = acIsEmergency(ac.squawk);
-        snprintf(d.hex,  sizeof(d.hex),  "%s", ac.hex.c_str());
-        snprintf(d.call, sizeof(d.call), "%s", ac.flight.c_str());
-        snprintf(d.type, sizeof(d.type), "%s", ac.type.c_str());
+        snprintf(d.hex,      sizeof(d.hex),      "%s", ac.hex.c_str());
+        snprintf(d.call,     sizeof(d.call),     "%s", ac.flight.c_str());
+        snprintf(d.type,     sizeof(d.type),     "%s", ac.type.c_str());
+        snprintf(d.category, sizeof(d.category), "%s", ac.category.c_str());
         d.altFt = ac.altBaro;
         d.onGround = ac.onGround;
         d.vsFpm = ac.baroRate;
