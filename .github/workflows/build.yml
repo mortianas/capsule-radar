@@ -27,9 +27,27 @@ jobs:
       - name: Build firmware (ESP32-S3)
         run: pio run -e esp32-s3-amoled-175
 
-      - name: Upload .bin artifact
+      - name: Collect flash files
+        run: |
+          mkdir flash-package
+          cp .pio/build/esp32-s3-amoled-175/bootloader.bin  flash-package/
+          cp .pio/build/esp32-s3-amoled-175/partitions.bin  flash-package/
+          cp .pio/build/esp32-s3-amoled-175/firmware.bin    flash-package/
+          cat > flash-package/flash.sh << 'EOF'
+          #!/bin/bash
+          # Usage: ./flash.sh /dev/ttyUSB0   (or COMx on Windows via WSL)
+          PORT=${1:-/dev/ttyUSB0}
+          esptool.py --chip esp32s3 --port "$PORT" --baud 921600 \
+            write_flash \
+            0x0000 bootloader.bin \
+            0x8000 partitions.bin \
+            0x10000 firmware.bin
+          EOF
+          chmod +x flash-package/flash.sh
+
+      - name: Upload flash package
         uses: actions/upload-artifact@v4
         with:
-          name: capsule-radar-firmware
-          path: .pio/build/esp32-s3-amoled-175/firmware.bin
+          name: capsule-radar-flash-package
+          path: flash-package/
           retention-days: 30
