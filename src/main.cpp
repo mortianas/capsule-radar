@@ -198,7 +198,7 @@ static void checkAudioEvents() {
         const std::string hex = ac.hex.c_str();
         now.insert(hex);
         const bool isNew     = !first && !seen.count(hex);
-        const bool emergency = acIsEmergency(ac.squawk) || ac.military;  // military: feed dbFlags
+        const bool emergency = acIsEmergency(ac.squawk);  // squawk 7500/7600/7700 only
 
         // proximity: fire once, when an aircraft first crosses into the radius (any aircraft)
         if (g_proximityKm > 0.0f && d <= g_proximityKm) {
