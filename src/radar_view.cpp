@@ -570,22 +570,25 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
 
     // ── MILITARY DELTA + WINGTIP MISSILES ───────────────────────────────────
     if (shape == 6) {
-        lv_point_t delta[6] = {
+        // Delta as two convex triangles (left + right half)
+        lv_point_t rdelta[3] = {
             rot_pt(  0, -13, deg, ox, oy),
             rot_pt( 11,   5, deg, ox, oy),
-            rot_pt(  7,  10, deg, ox, oy),
             rot_pt(  0,   7, deg, ox, oy),
-            rot_pt( -7,  10, deg, ox, oy),
-            rot_pt(-11,   5, deg, ox, oy),
         };
-        safe_poly(d, &g, delta, 6);
+        lv_point_t ldelta[3] = {
+            rot_pt(  0, -13, deg, ox, oy),
+            rot_pt(-11,   5, deg, ox, oy),
+            rot_pt(  0,   7, deg, ox, oy),
+        };
+        safe_poly(d, &g, rdelta, 3);
+        safe_poly(d, &g, ldelta, 3);
         lv_draw_rect_dsc_t cp; lv_draw_rect_dsc_init(&cp);
         cp.bg_color = lv_color_darken(col, LV_OPA_40); cp.bg_opa = LV_OPA_COVER; cp.radius = 2;
         lv_point_t cc = rot_pt(0, -5, deg, ox, oy);
         lv_area_t ca = { (lv_coord_t)(cc.x-2),(lv_coord_t)(cc.y-2),
                          (lv_coord_t)(cc.x+2),(lv_coord_t)(cc.y+2) };
         lv_draw_rect(d, &cp, &ca);
-        // Wingtip missiles as lines (safer than tiny rects)
         ln.width = 2;
         lv_point_t rw1 = rot_pt(11, 3, deg, ox, oy), rw2 = rot_pt(11, 8, deg, ox, oy);
         lv_point_t lw1 = rot_pt(-11,3, deg, ox, oy), lw2 = rot_pt(-11,8, deg, ox, oy);
@@ -596,18 +599,20 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
 
     // ── BUSINESS JET ────────────────────────────────────────────────────────
     if (shape == 7) {
-        lv_point_t fuse[6] = {
-            rot_pt( 0,-13, deg, ox, oy), rot_pt( 1, -8, deg, ox, oy),
-            rot_pt( 1,  9, deg, ox, oy), rot_pt( 0, 12, deg, ox, oy),
-            rot_pt(-1,  9, deg, ox, oy), rot_pt(-1, -8, deg, ox, oy),
+        lv_point_t fuse[4] = {
+            rot_pt( 0,-13, deg, ox, oy), rot_pt( 1,  9, deg, ox, oy),
+            rot_pt( 0, 12, deg, ox, oy), rot_pt(-1,  9, deg, ox, oy),
         };
-        safe_poly(d, &g, fuse, 6);
-        lv_point_t wing[6] = {
-            rot_pt(  0,  0, deg, ox, oy), rot_pt( 10,  8, deg, ox, oy),
-            rot_pt(  7, 10, deg, ox, oy), rot_pt(  0,  4, deg, ox, oy),
-            rot_pt( -7, 10, deg, ox, oy), rot_pt(-10,  8, deg, ox, oy),
+        safe_poly(d, &g, fuse, 4);
+        // Two convex wing triangles
+        lv_point_t rwing[3] = {
+            rot_pt(0,  2, deg, ox, oy), rot_pt(10,  8, deg, ox, oy), rot_pt(0, 6, deg, ox, oy),
         };
-        safe_poly(d, &g, wing, 6);
+        lv_point_t lwing[3] = {
+            rot_pt(0,  2, deg, ox, oy), rot_pt(-10, 8, deg, ox, oy), rot_pt(0, 6, deg, ox, oy),
+        };
+        safe_poly(d, &g, rwing, 3);
+        safe_poly(d, &g, lwing, 3);
         ln.width = 2;
         lv_point_t ta = rot_pt(-3,10, deg, ox, oy), tb = rot_pt(3,10, deg, ox, oy);
         safe_line(d, &ln, &ta, &tb);
@@ -616,12 +621,12 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
 
     // ── LIGHT GA (HIGH-WING CESSNA) ─────────────────────────────────────────
     if (shape == 1) {
-        lv_point_t fuse[6] = {
-            rot_pt( 0,-10, deg, ox, oy), rot_pt( 2, -5, deg, ox, oy),
-            rot_pt( 2,  7, deg, ox, oy), rot_pt( 0,  9, deg, ox, oy),
-            rot_pt(-2,  7, deg, ox, oy), rot_pt(-2, -5, deg, ox, oy),
+        lv_point_t fuse[4] = {
+            rot_pt( 0,-10, deg, ox, oy), rot_pt( 2,  7, deg, ox, oy),
+            rot_pt( 0,  9, deg, ox, oy), rot_pt(-2,  7, deg, ox, oy),
         };
-        safe_poly(d, &g, fuse, 6);
+        safe_poly(d, &g, fuse, 4);
+        // Straight high wing: one convex rectangle
         lv_point_t wing[4] = {
             rot_pt(-11,-3, deg, ox, oy), rot_pt( 11,-3, deg, ox, oy),
             rot_pt( 11, 0, deg, ox, oy), rot_pt(-11, 0, deg, ox, oy),
@@ -637,12 +642,12 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
 
     // ── TURBOPROP ───────────────────────────────────────────────────────────
     if (shape == 2) {
-        lv_point_t fuse[6] = {
-            rot_pt( 0,-11, deg, ox, oy), rot_pt( 2, -6, deg, ox, oy),
-            rot_pt( 2,  8, deg, ox, oy), rot_pt( 0, 10, deg, ox, oy),
-            rot_pt(-2,  8, deg, ox, oy), rot_pt(-2, -6, deg, ox, oy),
+        lv_point_t fuse[4] = {
+            rot_pt( 0,-11, deg, ox, oy), rot_pt( 2,  8, deg, ox, oy),
+            rot_pt( 0, 10, deg, ox, oy), rot_pt(-2,  8, deg, ox, oy),
         };
-        safe_poly(d, &g, fuse, 6);
+        safe_poly(d, &g, fuse, 4);
+        // Wide straight wing: convex rectangle
         lv_point_t wing[4] = {
             rot_pt(-14,-2, deg, ox, oy), rot_pt( 14,-2, deg, ox, oy),
             rot_pt( 14, 2, deg, ox, oy), rot_pt(-14, 2, deg, ox, oy),
@@ -658,18 +663,20 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
 
     // ── NARROW-BODY JET (737 / A320) ────────────────────────────────────────
     if (shape == 3) {
-        lv_point_t fuse[6] = {
-            rot_pt( 0,-12, deg, ox, oy), rot_pt( 2, -7, deg, ox, oy),
-            rot_pt( 2,  9, deg, ox, oy), rot_pt( 0, 11, deg, ox, oy),
-            rot_pt(-2,  9, deg, ox, oy), rot_pt(-2, -7, deg, ox, oy),
+        lv_point_t fuse[4] = {
+            rot_pt( 0,-12, deg, ox, oy), rot_pt( 2,  9, deg, ox, oy),
+            rot_pt( 0, 11, deg, ox, oy), rot_pt(-2,  9, deg, ox, oy),
         };
-        safe_poly(d, &g, fuse, 6);
-        lv_point_t wing[6] = {
-            rot_pt(  0, -2, deg, ox, oy), rot_pt( 12,  7, deg, ox, oy),
-            rot_pt(  9,  9, deg, ox, oy), rot_pt(  0,  2, deg, ox, oy),
-            rot_pt( -9,  9, deg, ox, oy), rot_pt(-12,  7, deg, ox, oy),
+        safe_poly(d, &g, fuse, 4);
+        // Swept wings as two triangles
+        lv_point_t rwing[3] = {
+            rot_pt(0, -1, deg, ox, oy), rot_pt(12,  7, deg, ox, oy), rot_pt(0, 3, deg, ox, oy),
         };
-        safe_poly(d, &g, wing, 6);
+        lv_point_t lwing[3] = {
+            rot_pt(0, -1, deg, ox, oy), rot_pt(-12, 7, deg, ox, oy), rot_pt(0, 3, deg, ox, oy),
+        };
+        safe_poly(d, &g, rwing, 3);
+        safe_poly(d, &g, lwing, 3);
         ln.width = 2;
         lv_point_t ta = rot_pt(-4, 9, deg, ox, oy), tb = rot_pt(4, 9, deg, ox, oy);
         safe_line(d, &ln, &ta, &tb);
@@ -678,18 +685,20 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
 
     // ── WIDE-BODY JET (747 / A380) ──────────────────────────────────────────
     if (shape == 4) {
-        lv_point_t fuse[6] = {
-            rot_pt( 0,-13, deg, ox, oy), rot_pt( 3, -8, deg, ox, oy),
-            rot_pt( 3, 10, deg, ox, oy), rot_pt( 0, 13, deg, ox, oy),
-            rot_pt(-3, 10, deg, ox, oy), rot_pt(-3, -8, deg, ox, oy),
+        lv_point_t fuse[4] = {
+            rot_pt( 0,-13, deg, ox, oy), rot_pt( 3, 10, deg, ox, oy),
+            rot_pt( 0, 13, deg, ox, oy), rot_pt(-3, 10, deg, ox, oy),
         };
-        safe_poly(d, &g, fuse, 6);
-        lv_point_t wing[6] = {
-            rot_pt(  0, -2, deg, ox, oy), rot_pt( 16,  8, deg, ox, oy),
-            rot_pt( 12, 10, deg, ox, oy), rot_pt(  0,  2, deg, ox, oy),
-            rot_pt(-12, 10, deg, ox, oy), rot_pt(-16,  8, deg, ox, oy),
+        safe_poly(d, &g, fuse, 4);
+        // Broad swept wings as two triangles
+        lv_point_t rwing[3] = {
+            rot_pt(0, -1, deg, ox, oy), rot_pt(16,  8, deg, ox, oy), rot_pt(0, 4, deg, ox, oy),
         };
-        safe_poly(d, &g, wing, 6);
+        lv_point_t lwing[3] = {
+            rot_pt(0, -1, deg, ox, oy), rot_pt(-16, 8, deg, ox, oy), rot_pt(0, 4, deg, ox, oy),
+        };
+        safe_poly(d, &g, rwing, 3);
+        safe_poly(d, &g, lwing, 3);
         ln.width = 3;
         lv_point_t ta = rot_pt(-6,10, deg, ox, oy), tb = rot_pt(6,10, deg, ox, oy);
         safe_line(d, &ln, &ta, &tb);
@@ -698,18 +707,19 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
 
     // ── GENERIC SWEPT-WING FALLBACK (shape 0) ───────────────────────────────
     {
-        lv_point_t fuse[6] = {
-            rot_pt( 0,-11, deg, ox, oy), rot_pt( 2, -6, deg, ox, oy),
-            rot_pt( 2,  8, deg, ox, oy), rot_pt( 0, 10, deg, ox, oy),
-            rot_pt(-2,  8, deg, ox, oy), rot_pt(-2, -6, deg, ox, oy),
+        lv_point_t fuse[4] = {
+            rot_pt( 0,-11, deg, ox, oy), rot_pt( 2,  8, deg, ox, oy),
+            rot_pt( 0, 10, deg, ox, oy), rot_pt(-2,  8, deg, ox, oy),
         };
-        safe_poly(d, &g, fuse, 6);
-        lv_point_t wing[6] = {
-            rot_pt(  0, -2, deg, ox, oy), rot_pt( 10,  6, deg, ox, oy),
-            rot_pt(  8,  8, deg, ox, oy), rot_pt(  0,  2, deg, ox, oy),
-            rot_pt( -8,  8, deg, ox, oy), rot_pt(-10,  6, deg, ox, oy),
+        safe_poly(d, &g, fuse, 4);
+        lv_point_t rwing[3] = {
+            rot_pt(0, -1, deg, ox, oy), rot_pt(10, 6, deg, ox, oy), rot_pt(0, 3, deg, ox, oy),
         };
-        safe_poly(d, &g, wing, 6);
+        lv_point_t lwing[3] = {
+            rot_pt(0, -1, deg, ox, oy), rot_pt(-10,6, deg, ox, oy), rot_pt(0, 3, deg, ox, oy),
+        };
+        safe_poly(d, &g, rwing, 3);
+        safe_poly(d, &g, lwing, 3);
         ln.width = 2;
         lv_point_t ta = rot_pt(-3, 8, deg, ox, oy), tb = rot_pt(3, 8, deg, ox, oy);
         safe_line(d, &ln, &ta, &tb);
