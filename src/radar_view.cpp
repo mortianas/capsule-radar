@@ -529,10 +529,6 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
         lv_point_t r2a = rot_pt( -4,-9, deg, ox, oy), r2b = rot_pt( 4, 9, deg, ox, oy);
         lv_draw_line(d, &ln, &r1a, &r1b);
         lv_draw_line(d, &ln, &r2a, &r2b);
-        // Rotor hub dot
-        lv_draw_arc_dsc_t hub; lv_draw_arc_dsc_init(&hub);
-        hub.color = col; hub.width = 3; hub.opa = LV_OPA_COVER;
-        lv_draw_arc(d, &hub, &ac.pos, 2, 0, 360);
         // Body: rounded oval fuselage
         lv_point_t body[6] = {
             rot_pt( 0, -5, deg, ox, oy), rot_pt( 3, -2, deg, ox, oy),
@@ -684,13 +680,6 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
             rot_pt( -9,  9, deg, ox, oy), rot_pt(-12,  7, deg, ox, oy),
         };
         lv_draw_polygon(d, &g, wing, 6);
-        // Engine bumps under wings
-        lv_draw_arc_dsc_t eng; lv_draw_arc_dsc_init(&eng);
-        eng.color = col; eng.width = 2; eng.opa = LV_OPA_COVER;
-        lv_point_t re = rot_pt( 7, 4, deg, ox, oy);
-        lv_point_t le = rot_pt(-7, 4, deg, ox, oy);
-        lv_draw_arc(d, &eng, &re, 2, 0, 360);
-        lv_draw_arc(d, &eng, &le, 2, 0, 360);
         // Tail
         lv_point_t tail[4] = {
             rot_pt(-4, 8, deg, ox, oy), rot_pt( 4, 8, deg, ox, oy),
@@ -716,15 +705,6 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
             rot_pt(-12, 10, deg, ox, oy), rot_pt(-16,  8, deg, ox, oy),
         };
         lv_draw_polygon(d, &g, wing, 6);
-        // Two engines each side
-        lv_draw_arc_dsc_t eng; lv_draw_arc_dsc_init(&eng);
-        eng.color = col; eng.width = 2; eng.opa = LV_OPA_COVER;
-        lv_point_t e1r = rot_pt( 7, 4, deg, ox, oy), e2r = rot_pt(11, 6, deg, ox, oy);
-        lv_point_t e1l = rot_pt(-7, 4, deg, ox, oy), e2l = rot_pt(-11,6, deg, ox, oy);
-        lv_draw_arc(d, &eng, &e1r, 2, 0, 360);
-        lv_draw_arc(d, &eng, &e2r, 2, 0, 360);
-        lv_draw_arc(d, &eng, &e1l, 2, 0, 360);
-        lv_draw_arc(d, &eng, &e2l, 2, 0, 360);
         // Large tail
         lv_point_t tail[4] = {
             rot_pt(-6, 9, deg, ox, oy), rot_pt( 6, 9, deg, ox, oy),
