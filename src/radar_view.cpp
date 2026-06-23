@@ -436,19 +436,22 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
     const lv_coord_t ox = ac.pos.x, oy = ac.pos.y;
 
     // Resolve shape and colour from category
-    int shape = 0; // 0=arrowhead, 1=ga, 2=turboprop, 3=narrowbody, 4=widebody, 5=heli
+    // 0=arrowhead fallback, 1=GA, 2=turboprop, 3=narrowbody, 4=widebody, 5=heli, 6=military jet
+    int shape = 0;
     lv_color_t col = ac.color;
     const char *cat = ac.category;
-    if (cat[0] == 'A') {
+    if (ac.military) {
+        shape = 6; col = lv_color_hex(0xFF5A3C);  // military: delta-wing silhouette, red
+    } else if (cat[0] == 'A') {
         const int n = (cat[1] >= '1' && cat[1] <= '9') ? (cat[1] - '0') : 0;
         if      (n == 1 || n == 2) { shape = 1; col = lv_color_hex(0x3CE0FF); }
         else if (n == 3)           { shape = 2; col = lv_color_hex(0xC8FF3C); }
         else if (n == 4 || n == 5) { shape = 3; col = lv_color_hex(0xEAFFF3); }
         else if (n == 6 || n == 7) { shape = 4; col = lv_color_hex(0xEAFFF3); }
-    } else if (cat[0] == 'B' && (cat[1] == '1' || cat[1] == '2')) {
-        shape = 5; col = lv_color_hex(0xFFE11A);
+    } else if (cat[0] == 'B') {
+        if      (cat[1] == '1')                  { shape = 5; col = lv_color_hex(0xFFE11A); } // heli
+        else if (cat[1] == '2')                  { shape = 0; col = lv_color_hex(0xFFE11A); } // balloon/glider
     }
-    if (ac.military) col = lv_color_hex(0xFF5A3C);
 
     lv_draw_rect_dsc_t g;
     lv_draw_rect_dsc_init(&g);
@@ -456,25 +459,53 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
     g.bg_opa = LV_OPA_COVER;
 
     if (shape == 5) {
-        // Helicopter: rotor disc outline + tiny body + tail boom
-        lv_draw_arc_dsc_t rd;
-        lv_draw_arc_dsc_init(&rd);
-        rd.color = col; rd.width = 2; rd.opa = LV_OPA_COVER;
-        lv_draw_arc(d, &rd, &ac.pos, 11, 0, 360);
-        lv_point_t body[4] = {
-            rot_pt( 0, -4, deg, ox, oy), rot_pt( 3,  1, deg, ox, oy),
-            rot_pt( 0,  5, deg, ox, oy), rot_pt(-3,  1, deg, ox, oy),
+        // Helicopter: cross main rotor blades + teardrop body + tail boom + tail rotor
+        lv_draw_line_dsc_t rl;
+        lv_draw_line_dsc_init(&rl);
+        rl.color = col; rl.width = 2; rl.opa = LV_OPA_COVER;
+        // main rotor: two crossed blades
+        lv_point_t r1a = rot_pt(-10, 0, deg, ox, oy), r1b = rot_pt(10, 0, deg, ox, oy);
+        lv_point_t r2a = rot_pt(0, -10, deg, ox, oy), r2b = rot_pt(0, 10, deg, ox, oy);
+        lv_draw_line(d, &rl, &r1a, &r1b);
+        lv_draw_line(d, &rl, &r2a, &r2b);
+        // body: small teardrop
+        lv_point_t body[5] = {
+            rot_pt( 0, -4, deg, ox, oy), rot_pt( 3,  0, deg, ox, oy),
+            rot_pt( 2,  5, deg, ox, oy), rot_pt(-2,  5, deg, ox, oy),
+            rot_pt(-3,  0, deg, ox, oy),
         };
-        lv_draw_polygon(d, &g, body, 4);
-        lv_draw_line_dsc_t tl;
-        lv_draw_line_dsc_init(&tl);
-        tl.color = col; tl.width = 2; tl.opa = LV_OPA_COVER;
-        lv_point_t b1 = rot_pt(0,  5, deg, ox, oy);
-        lv_point_t b2 = rot_pt(0, 14, deg, ox, oy);
-        lv_draw_line(d, &tl, &b1, &b2);
-        lv_point_t tr1 = rot_pt(-3, 13, deg, ox, oy);
-        lv_point_t tr2 = rot_pt( 3, 13, deg, ox, oy);
-        lv_draw_line(d, &tl, &tr1, &tr2);
+        lv_draw_polygon(d, &g, body, 5);
+        // tail boom
+        lv_point_t tb1 = rot_pt(0, 5, deg, ox, oy), tb2 = rot_pt(0, 13, deg, ox, oy);
+        lv_draw_line(d, &rl, &tb1, &tb2);
+        // tail rotor (small horizontal bar at boom tip)
+        rl.width = 1;
+        lv_point_t tr1 = rot_pt(-4, 13, deg, ox, oy), tr2 = rot_pt(4, 13, deg, ox, oy);
+        lv_draw_line(d, &rl, &tr1, &tr2);
+        return;
+    }
+
+    if (shape == 6) {
+        // Military jet: sharp delta wing with no separate tail, canopy bump on fuselage
+        // delta wing — large swept triangle
+        lv_point_t wing[6] = {
+            rot_pt(  0, -12, deg, ox, oy),  // nose
+            rot_pt( 10,   6, deg, ox, oy),  // right wingtip
+            rot_pt(  6,  10, deg, ox, oy),  // right trailing edge
+            rot_pt(  0,   7, deg, ox, oy),  // tail centre notch
+            rot_pt( -6,  10, deg, ox, oy),  // left trailing edge
+            rot_pt(-10,   6, deg, ox, oy),  // left wingtip
+        };
+        lv_draw_polygon(d, &g, wing, 6);
+        // canopy: small rectangle on the fuselage spine
+        lv_color_t dark = lv_color_darken(col, LV_OPA_30);
+        lv_draw_rect_dsc_t cp;
+        lv_draw_rect_dsc_init(&cp);
+        cp.bg_color = dark; cp.bg_opa = LV_OPA_COVER; cp.radius = 2;
+        lv_point_t cc = rot_pt(0, -4, deg, ox, oy);
+        lv_area_t ca = { (lv_coord_t)(cc.x - 2), (lv_coord_t)(cc.y - 2),
+                         (lv_coord_t)(cc.x + 2), (lv_coord_t)(cc.y + 2) };
+        lv_draw_rect(d, &cp, &ca);
         return;
     }
 
