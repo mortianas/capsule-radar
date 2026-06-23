@@ -510,7 +510,7 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
     const char *typ = ac.type;   // ICAO type code e.g. "B738", "C172", "GLF5"
 
     if (ac.military) {
-        shape = 6; col = lv_color_hex(0xFF5A3C);
+        shape = 6; col = lv_color_hex(0xFF00CC);
     } else {
         // Try type-code first, fall back to category
         int ts = type_to_shape(typ);
