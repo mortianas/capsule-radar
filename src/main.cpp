@@ -40,7 +40,7 @@ static WiFiManager           g_wm;
 static int                   g_brightnessDay = BRIGHTNESS_DEFAULT;   // user brightness (web/NVS)
 static int                   g_volume = 60;                          // alert volume 0..100 (web/NVS)
 static bool                  g_muted  = false;                       // mute alert pings
-static int                   g_alertMode = 2;                        // 0=off 1=emergencies 2=new+emergencies (web/NVS)
+static int                   g_alertMode = 2;                        // 0=off 1=emergencies 2=new+emergencies 3=military (web/NVS)
 static float                 g_proximityKm = 0.0f;                   // proximity alert radius, km (0=off) (web/NVS)
 static uint32_t              g_idleDimMs = IDLE_DIM_MS;              // dim after this idle time (0 = never)
 static bool                  g_showSweep = true;                     // rotating sweep line on/off (web/NVS)
@@ -208,8 +208,11 @@ static void checkAudioEvents() {
 
         // new-in-range pings (on entry), gated by the alert mode
         if (isNew) {
-            if (emergency) { if (g_alertMode >= 1) audio_play(AUDIO_ALERT); }   // emergencies only / +new
-            else if (g_alertMode >= 2 && millis() - lastNew > 3000) {
+            if (g_alertMode == 3) {
+                if (ac.military) audio_play(AUDIO_ALERT);                       // military only
+            } else if (emergency) {
+                if (g_alertMode >= 1) audio_play(AUDIO_ALERT);                  // emergencies (incl. military)
+            } else if (g_alertMode >= 2 && millis() - lastNew > 3000) {
                 audio_play(AUDIO_NEW);                                          // new contact (rate-limited)
                 lastNew = millis();
             }
@@ -329,9 +332,9 @@ static void handleRoot() {
         snprintf(o, sizeof(o), "<option value=%d%s>%s</option>", i, i == g_trailLen ? " selected" : "", tlnames[i]);
         tlopts += o;
     }
-    const char *anames[] = {"Off", "Emergencies only", "New aircraft + emergencies"};
+    const char *anames[] = {"Off", "Emergencies only", "New aircraft + emergencies", "Military aircraft only"};
     String aopts;
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 4; ++i) {
         char o[80];
         snprintf(o, sizeof(o), "<option value=%d%s>%s</option>", i, i == g_alertMode ? " selected" : "", anames[i]);
         aopts += o;
@@ -532,7 +535,7 @@ static void handleVol() {
 }
 
 static void handleAlerts() {   // what triggers the alert sound (live)
-    if (g_web.hasArg("mode")) g_alertMode   = constrain((int)g_web.arg("mode").toInt(), 0, 2);
+    if (g_web.hasArg("mode")) g_alertMode   = constrain((int)g_web.arg("mode").toInt(), 0, 3);
     if (g_web.hasArg("prox")) g_proximityKm = g_web.arg("prox").toFloat();   // km (0 = off)
     if (g_web.hasArg("save")) {
         Preferences p;
