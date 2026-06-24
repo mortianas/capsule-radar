@@ -231,10 +231,14 @@ static void checkAudioEvents() {
         // new-in-range pings (on entry), gated by the alert mode
         if (isNew) {
             if (g_alertMode == 3) {
-                if (ac.military) audio_play(AUDIO_ALERT);                       // military only
-            } else if (emergency) {
-                if (g_alertMode >= 1) audio_play(AUDIO_ALERT);                  // emergencies (incl. military)
-            } else if (g_alertMode >= 2 && millis() - lastNew > 3000) {
+                // military only — no emergency, no new-contact ping
+                if (ac.military) audio_play(AUDIO_ALERT);
+            } else if (g_alertMode == 4) {
+                // military + emergencies
+                if (ac.military || emergency) audio_play(AUDIO_ALERT);
+            } else if (emergency && g_alertMode >= 1) {
+                audio_play(AUDIO_ALERT);
+            } else if (g_alertMode == 2 && millis() - lastNew > 3000) {
                 audio_play(AUDIO_NEW);                                          // new contact (rate-limited)
                 lastNew = millis();
             }
@@ -355,9 +359,9 @@ static void handleRoot() {
         snprintf(o, sizeof(o), "<option value=%d%s>%s</option>", i, i == g_trailLen ? " selected" : "", tlnames[i]);
         tlopts += o;
     }
-    const char *anames[] = {"Off", "Emergencies only", "New aircraft + emergencies", "Military aircraft only"};
+    const char *anames[] = {"Off", "Emergencies only", "New aircraft + emergencies", "Military only", "Military + emergencies"};
     String aopts;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 5; ++i) {
         char o[80];
         snprintf(o, sizeof(o), "<option value=%d%s>%s</option>", i, i == g_alertMode ? " selected" : "", anames[i]);
         aopts += o;
@@ -560,7 +564,7 @@ static void handleVol() {
 }
 
 static void handleAlerts() {   // what triggers the alert sound (live)
-    if (g_web.hasArg("mode"))  g_alertMode   = constrain((int)g_web.arg("mode").toInt(), 0, 3);
+    if (g_web.hasArg("mode"))  g_alertMode   = constrain((int)g_web.arg("mode").toInt(), 0, 4);
     if (g_web.hasArg("prox"))  g_proximityKm = g_web.arg("prox").toFloat();   // km (0 = off)
     if (g_web.hasArg("quiet")) g_quietHours  = g_web.arg("quiet").toInt() != 0;
     if (g_web.hasArg("save")) {
