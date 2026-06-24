@@ -131,51 +131,90 @@ static bool i2s_setup() {
     return true;
 }
 
-// Synthesize one beep (freq Hz, ms) with a short fade in/out, into a stereo buffer.
+// Flat-top beep with short linear fade in/out (anti-click ramps).
 static size_t gen_beep(int16_t *buf, size_t cap, float freq, int ms, float amp) {
     const size_t n = (size_t)((long)SR * ms / 1000);
-    const size_t fade = SR / 200;                 // ~5 ms ramps (anti-click)
+    const size_t fade = SR / 200;
     size_t i = 0;
     for (; i < n && (i * 2 + 1) < cap; ++i) {
         float env = 1.0f;
-        if (i < fade)            env = (float)i / fade;
-        else if (i > n - fade)   env = (float)(n - i) / fade;
+        if (i < fade)          env = (float)i / fade;
+        else if (i > n - fade) env = (float)(n - i) / fade;
         const int16_t s = (int16_t)(amp * env * sinf(2.0f * (float)M_PI * freq * i / SR));
-        buf[i * 2] = s; buf[i * 2 + 1] = s;       // L = R
+        buf[i * 2] = s; buf[i * 2 + 1] = s;
     }
-    return i * 2;                                  // samples written (stereo interleaved)
+    return i * 2;
+}
+
+// Sonar-style ping: short attack then exponential decay — natural "ping" feel.
+static size_t gen_ping(int16_t *buf, size_t cap, float freq, int ms, float amp) {
+    const size_t n      = (size_t)((long)SR * ms / 1000);
+    const float  k      = 7.0f / (float)n;        // decay: ~e^-7 at end → nearly silent
+    const size_t fadein = SR / 400;                // ~2.5 ms attack (anti-click)
+    size_t i = 0;
+    for (; i < n && (i * 2 + 1) < cap; ++i) {
+        float env = expf(-(float)i * k);
+        if (i < fadein) env *= (float)i / (float)fadein;
+        const int16_t s = (int16_t)(amp * env * sinf(2.0f * (float)M_PI * freq * i / SR));
+        buf[i * 2] = s; buf[i * 2 + 1] = s;
+    }
+    return i * 2;
+}
+
+// Linear frequency chirp from f0→f1 over ms milliseconds (phase-continuous).
+static size_t gen_sweep(int16_t *buf, size_t cap, float f0, float f1, int ms, float amp) {
+    const size_t n    = (size_t)((long)SR * ms / 1000);
+    const size_t fade = SR / 200;
+    float phase = 0.0f;
+    size_t i = 0;
+    for (; i < n && (i * 2 + 1) < cap; ++i) {
+        const float freq = f0 + (f1 - f0) * ((float)i / (float)n);
+        float env = 1.0f;
+        if (i < fade)          env = (float)i / fade;
+        else if (i > n - fade) env = (float)(n - i) / fade;
+        phase += 2.0f * (float)M_PI * freq / SR;
+        const int16_t s = (int16_t)(amp * env * sinf(phase));
+        buf[i * 2] = s; buf[i * 2 + 1] = s;
+    }
+    return i * 2;
 }
 
 static void play_cue(int cue) {
     if (!s_ok || !s_buf || (s_muted && cue != 2) || s_vol <= 0) return;
     int16_t *buf = s_buf;
     const float amp = (s_vol / 100.0f) * 17000.0f;
-    digitalWrite(PIN_AUDIO_PA, HIGH);              // enable speaker amp
-    delay(8);                                      // let the amp power up
+    digitalWrite(PIN_AUDIO_PA, HIGH);
+    delay(8);
     size_t bw;
-    if (cue == 2) {                                // self-test: ~2 s continuous tone, PA held
+    if (cue == 2) {
+        // Self-test: ~2 s continuous tone
         size_t ns = gen_beep(buf, S_BUF_LEN, 1000.0f, 480, amp);
         for (int k = 0; k < 4; ++k) i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
+    } else if (cue == AUDIO_NEW) {
+        // Sonar ping: 700 Hz, 500 ms exponential decay — classic radar room feel
+        size_t ns = gen_ping(buf, S_BUF_LEN, 700.0f, 500, amp);
+        i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
     } else if (cue == AUDIO_ALERT) {
+        // GPWS-style emergency: rising sweep 380→900 Hz × 2 — urgent "whoop whoop"
         for (int k = 0; k < 2; ++k) {
-            size_t ns = gen_beep(buf, S_BUF_LEN, 1320.0f, 80, amp);
+            size_t ns = gen_sweep(buf, S_BUF_LEN, 380.0f, 900.0f, 280, amp);
             i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
-            delay(40);
+            delay(60);
+        }
+    } else if (cue == AUDIO_MILITARY) {
+        // Radar lock warning: three rapid high-pitched pips — fighter jet missile lock
+        for (int k = 0; k < 3; ++k) {
+            size_t ns = gen_beep(buf, S_BUF_LEN, 1800.0f, 55, amp);
+            i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
+            delay(65);
         }
     } else if (cue == AUDIO_RARE) {
-        // Triple ascending beep — distinct from single (new) and double (alert)
-        const float freqs[3] = {880.0f, 1320.0f, 1760.0f};
-        for (int k = 0; k < 3; ++k) {
-            size_t ns = gen_beep(buf, S_BUF_LEN, freqs[k], 100, amp);
-            i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
-            delay(50);
-        }
-    } else {
-        size_t ns = gen_beep(buf, S_BUF_LEN, 880.0f, 160, amp);
+        // Vintage radar room ping: mellow 440 Hz, longer exponential decay
+        size_t ns = gen_ping(buf, S_BUF_LEN, 440.0f, 700, amp * 0.85f);
         i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
     }
-    delay(90);                                     // let the DMA clock the tail out before cutting the amp
-    digitalWrite(PIN_AUDIO_PA, LOW);               // mute amp between pings (saves power, kills hiss)
+    delay(90);
+    digitalWrite(PIN_AUDIO_PA, LOW);
 }
 
 static void audio_task(void *) {

@@ -230,15 +230,16 @@ static void checkAudioEvents() {
         // new-in-range pings (on entry), gated by the alert mode
         if (isNew) {
             if (g_alertMode == 3) {
-                // military only — no emergency, no new-contact ping
-                if (ac.military) audio_play(AUDIO_ALERT);
+                // military only
+                if (ac.military) audio_play(AUDIO_MILITARY);
             } else if (g_alertMode == 4) {
                 // military + emergencies
-                if (ac.military || emergency) audio_play(AUDIO_ALERT);
+                if (ac.military)  audio_play(AUDIO_MILITARY);
+                else if (emergency) audio_play(AUDIO_ALERT);
             } else if (emergency && g_alertMode >= 1) {
                 audio_play(AUDIO_ALERT);
             } else if (g_alertMode == 2 && millis() - lastNew > 3000) {
-                audio_play(AUDIO_NEW);                                          // new contact (rate-limited)
+                audio_play(AUDIO_NEW);
                 lastNew = millis();
             }
         }
