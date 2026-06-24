@@ -212,14 +212,13 @@ static void checkAudioEvents() {
         const bool isRare    = (rare_type_name(ac.type.c_str()) != nullptr);
 
         // proximity: fire once, when an aircraft first crosses into the radius (any aircraft)
-        if (g_proximityKm > 0.0f && d <= g_proximityKm) {
+        if (g_alertMode > 0 && g_proximityKm > 0.0f && d <= g_proximityKm) {
             nowProx.insert(hex);
             if (!first && !seenProx.count(hex)) audio_play(AUDIO_ALERT);
         }
 
-        // rare aircraft: triple ascending beep once per hex, regardless of alert mode
-        // (only suppressed by mute / quiet hours, not by the alert mode dropdown)
-        if (isRare) {
+        // rare aircraft: triple ascending beep once per hex, also gated by alert mode
+        if (g_alertMode > 0 && isRare) {
             nowRare.insert(hex);
             if (!first && !seenRare.count(hex)) {
                 const char *name = rare_type_name(ac.type.c_str());
