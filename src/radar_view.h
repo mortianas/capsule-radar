@@ -33,6 +33,8 @@ struct AcInfo {
     float bearingDeg;
     int   squawk;       // -1 if unknown
     bool  emergency;
+    bool  military;
+    bool  rare;
 };
 
 namespace radar {

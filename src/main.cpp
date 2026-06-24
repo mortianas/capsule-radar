@@ -57,6 +57,9 @@ static std::vector<Aircraft> g_snap;                                 // last sna
 static volatile bool         g_requery = false;                      // range changed -> adsb_task re-begins
 static float                 g_requeryKm = 0.0f;
 static volatile bool         g_feedOk = true;                        // ADS-B feed healthy? (HUD warning)
+static int                   g_milSeen  = 0;                         // session: military contacts seen
+static int                   g_rareSeen = 0;                         // session: rare contacts seen
+static char                  g_rareLog[320] = "";                    // session: last 5 rare sightings
 static volatile uint32_t     g_lastFeedOkMs = 0;                     // millis() of the last good poll (HUD staleness)
 static volatile uint32_t     g_rebootAtMs = 0;                       // !=0: reboot when millis() reaches it (clean start after WiFi config)
 static String                g_tz = TZ_STR;                          // POSIX timezone (web-configurable, NVS); applied via configTzTime
@@ -224,17 +227,31 @@ static void checkAudioEvents() {
                 const char *name = rare_type_name(ac.type.c_str());
                 Serial.printf("[rare] %s (%s) in range!\n", name, ac.type.c_str());
                 audio_play(AUDIO_RARE);
+                g_rareSeen++;
+                // show toast overlay on the radar screen
+                ui_show_rare_notify(name, ac.flight.c_str());
+                // prepend to rare log (keep last 5 lines)
+                char entry[80], prev[320];
+                snprintf(entry, sizeof(entry), "%s %s\n",
+                         name, ac.flight.c_str()[0] ? ac.flight.c_str() : ac.type.c_str());
+                snprintf(prev, sizeof(prev), "%s", g_rareLog);
+                snprintf(g_rareLog, sizeof(g_rareLog), "%s%s", entry, prev);
+                // truncate to 5 lines
+                int lines = 0; char *p = g_rareLog;
+                while (*p) { if (*p++ == '\n' && ++lines >= 5) { *p = '\0'; break; } }
+                ui_set_session_stats(g_milSeen, g_rareSeen, g_rareLog);
             }
         }
 
         // new-in-range pings (on entry), gated by the alert mode
         if (isNew) {
+            if (ac.military) { g_milSeen++; ui_set_session_stats(g_milSeen, g_rareSeen, g_rareLog); }
             if (g_alertMode == 3) {
                 // military only
                 if (ac.military) audio_play(AUDIO_MILITARY);
             } else if (g_alertMode == 4) {
                 // military + emergencies
-                if (ac.military)  audio_play(AUDIO_MILITARY);
+                if (ac.military)    audio_play(AUDIO_MILITARY);
                 else if (emergency) audio_play(AUDIO_ALERT);
             } else if (emergency && g_alertMode >= 1) {
                 audio_play(AUDIO_ALERT);

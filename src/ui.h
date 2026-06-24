@@ -13,3 +13,5 @@ void ui_splash_show(void);  // branded boot splash (auto-fades, covers init time
 void ui_set_range_cb(void (*cb)(float km));  // on-screen zoom button -> notify main
 void ui_set_range_km(float km);              // update the zoom button label / sync the cycle
 void ui_set_units(int preset);               // 0 = Aviation (ft,kt,km) · 1 = Metric (m,km/h,km) · 2 = Imperial (ft,mph,mi)
+void ui_show_rare_notify(const char *aircraft_name, const char *callsign);  // brief on-screen toast
+void ui_set_session_stats(int mil_seen, int rare_seen, const char *rare_log); // stats tile counters

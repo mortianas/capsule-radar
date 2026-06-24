@@ -30,6 +30,12 @@ static lv_obj_t *s_statsLbl = nullptr;
 static lv_obj_t *s_statsNet = nullptr;
 static lv_obj_t *s_hudGps   = nullptr;   // HUD satellite icon (hidden unless GPS auto-location is on)
 static lv_obj_t *s_statsGps = nullptr;   // Stats view GPS status line
+static lv_obj_t *s_toast    = nullptr;   // rare-aircraft pop-up toast
+static lv_timer_t *s_toastTimer = nullptr;
+static lv_obj_t *s_statsSession = nullptr;  // session counters label in stats tile
+static int   s_milSeen   = 0;
+static int   s_rareSeen  = 0;
+static char  s_rareLog[320] = "";
 
 // --------------------------------------------------------------------- units
 // 0 = Aviation (ft, kt, km) · 1 = Metric (m, km/h, km) · 2 = Imperial (ft, mph, mi).
@@ -324,29 +330,43 @@ static void build_list(void) {
 static void build_stats(void) {
     if (!s_statsLbl) return;
     const int n = radar::count();
-    int emg = 0;
+    int emg = 0, mil = 0;
     float nearest = 1e9f, highest = -1e9f;
     char nearestCall[12] = "-";
     for (int i = 0; i < n; ++i) {
         AcInfo in;
         radar::info(i, in);
         if (in.emergency) emg++;
+        if (in.military)  mil++;
         if (in.distKm < nearest) { nearest = in.distKm; snprintf(nearestCall, sizeof(nearestCall), "%s", in.call[0] ? in.call : in.hex); }
         if (!in.onGround && in.altFt > highest) highest = in.altFt;
     }
     char altH[16];
     fmt_alt(altH, sizeof(altH), (highest > -1e8f) ? highest : 0.0f, false);
-    char st[220];
+    char st[256];
     snprintf(st, sizeof(st),
              "Aircraft   %d\n"
+             "Military   %d\n"
              "Emergency  %d\n"
              "Nearest    %s\n"
              "           %.1f %s\n"
              "Highest    %s\n"
              "Range      %.0f %s",
-             n, emg, n ? nearestCall : "-", dist_val(n ? nearest : 0.0f), dist_unit(),
+             n, mil, emg, n ? nearestCall : "-", dist_val(n ? nearest : 0.0f), dist_unit(),
              altH, dist_val(s_rangeKm), dist_unit());
     lv_label_set_text(s_statsLbl, st);
+
+    // session totals + rare log
+    if (s_statsSession) {
+        char ss[340];
+        snprintf(ss, sizeof(ss),
+                 "-- Session --\n"
+                 "Military seen  %d\n"
+                 "Rare seen      %d\n"
+                 "%s",
+                 s_milSeen, s_rareSeen, s_rareLog[0] ? s_rareLog : "No rare contacts yet");
+        lv_label_set_text(s_statsSession, ss);
+    }
 }
 
 // Rebuild whichever of list/stats is currently on screen (called on poll and on swipe).
@@ -651,7 +671,75 @@ void ui_create(void) {
     lv_label_set_text(ver, "Capsule Radar v" FW_VERSION);
     lv_obj_align(ver, LV_ALIGN_CENTER, 0, 170);
 
+    // session stats label (military seen / rare seen / rare log)
+    s_statsSession = lv_label_create(sp);
+    lv_obj_set_width(s_statsSession, 320);
+    lv_obj_set_style_text_font(s_statsSession, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_statsSession, UI_SOFT, 0);
+    lv_obj_set_style_text_align(s_statsSession, LV_TEXT_ALIGN_LEFT, 0);
+    lv_label_set_text(s_statsSession, "");
+    lv_obj_align(s_statsSession, LV_ALIGN_CENTER, 0, 60);
+
+    // rare aircraft toast — pill badge that pops up briefly on the radar view
+    s_toast = lv_obj_create(s_tileRadar);
+    lv_obj_remove_style_all(s_toast);
+    lv_obj_set_size(s_toast, 280, 46);
+    lv_obj_align(s_toast, LV_ALIGN_TOP_MID, 0, 120);
+    lv_obj_set_style_bg_color(s_toast, lv_color_hex(0x0C160F), 0);
+    lv_obj_set_style_bg_opa(s_toast, 230, 0);
+    lv_obj_set_style_radius(s_toast, 23, 0);
+    lv_obj_set_style_border_color(s_toast, lv_color_white(), 0);
+    lv_obj_set_style_border_width(s_toast, 1, 0);
+    lv_obj_set_style_border_opa(s_toast, 180, 0);
+    lv_obj_set_style_pad_all(s_toast, 8, 0);
+    lv_obj_clear_flag(s_toast, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(s_toast, LV_OBJ_FLAG_HIDDEN);
+    {
+        lv_obj_t *tl = lv_label_create(s_toast);
+        lv_obj_set_width(tl, 264);
+        lv_obj_set_style_text_font(tl, &lv_font_montserrat_16, 0);
+        lv_obj_set_style_text_color(tl, lv_color_white(), 0);
+        lv_obj_set_style_text_align(tl, LV_TEXT_ALIGN_CENTER, 0);
+        lv_label_set_text(tl, "");
+        lv_obj_center(tl);
+        lv_obj_set_user_data(s_toast, tl);   // store label ptr for later updates
+    }
+
     lv_obj_set_tile_id(s_tv, 0, 0, LV_ANIM_OFF);
 
     ui_splash_show();   // branded boot splash on top (auto-fades)
+}
+
+// ----------------------------------------------------------------- rare toast
+static void toast_hide_cb(lv_timer_t *t) {
+    (void)t;
+    if (s_toast) lv_obj_add_flag(s_toast, LV_OBJ_FLAG_HIDDEN);
+    if (s_toastTimer) { lv_timer_del(s_toastTimer); s_toastTimer = nullptr; }
+}
+
+void ui_show_rare_notify(const char *aircraft_name, const char *callsign) {
+    if (!s_toast) return;
+    lv_obj_t *tl = (lv_obj_t *)lv_obj_get_user_data(s_toast);
+    if (tl) {
+        char buf[64];
+        if (callsign && callsign[0])
+            snprintf(buf, sizeof(buf), "\xE2\x98\x86 %s  %s", aircraft_name, callsign);
+        else
+            snprintf(buf, sizeof(buf), "\xE2\x98\x86 %s", aircraft_name);
+        lv_label_set_text(tl, buf);
+    }
+    lv_obj_clear_flag(s_toast, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(s_toast);
+    if (s_toastTimer) { lv_timer_del(s_toastTimer); s_toastTimer = nullptr; }
+    s_toastTimer = lv_timer_create(toast_hide_cb, 5000, nullptr);
+    lv_timer_set_repeat_count(s_toastTimer, 1);
+}
+
+// ------------------------------------------------------------ session stats
+void ui_set_session_stats(int mil_seen, int rare_seen, const char *rare_log) {
+    s_milSeen  = mil_seen;
+    s_rareSeen = rare_seen;
+    if (rare_log) snprintf(s_rareLog, sizeof(s_rareLog), "%s", rare_log);
+    // refresh stats tile if it's currently visible
+    if (s_tv && lv_tileview_get_tile_act(s_tv) == s_tileStats) build_stats();
 }

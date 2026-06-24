@@ -749,6 +749,22 @@ static void ac_draw_cb(lv_event_t *e) {
         } else {
             if (!ac.inRange) continue;            // phosphor shows in-range traffic only
             draw_trail(d, ac, ac.color);
+            // Speed vector: thin line in heading direction for military and rare only.
+            // Helps spot fast movers that need the camera out quickly.
+            if ((ac.military || ac.rare) && ac.gsKt == ac.gsKt && ac.gsKt > 20.0f) {
+                const float deg = (ac.track != ac.track) ? 0.0f : ac.track;
+                const float len = fminf(ac.gsKt * 0.10f, 40.0f);  // 0.1 px/kt, cap 40px
+                lv_draw_line_dsc_t vl;
+                lv_draw_line_dsc_init(&vl);
+                vl.color = ac.color; vl.width = 1; vl.opa = 140;
+                const float rad = deg * (float)M_PI / 180.0f;
+                lv_point_t va = ac.pos;
+                lv_point_t vb = {
+                    (lv_coord_t)(ac.pos.x + lroundf(sinf(rad) * len)),
+                    (lv_coord_t)(ac.pos.y - lroundf(cosf(rad) * len))
+                };
+                safe_line(d, &vl, &va, &vb);
+            }
             draw_aircraft_icon(d, ac);
             if (ac.emergency) {
                 lv_draw_arc_dsc_t h;
@@ -1154,6 +1170,7 @@ static void fill_info(const AcDraw &a, AcInfo &out) {
     out.vsFpm = a.vsFpm; out.gsKt = a.gsKt;
     out.distKm = a.distKm; out.bearingDeg = a.bearingDeg;
     out.squawk = a.squawk; out.emergency = a.emergency;
+    out.military = a.military; out.rare = a.rare;
 }
 
 void select(int idx) {
