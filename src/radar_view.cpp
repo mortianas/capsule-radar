@@ -511,14 +511,11 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
     const char *cat = ac.category;
     const char *typ = ac.type;   // ICAO type code e.g. "B738", "C172", "GLF5"
 
-    if (ac.military) {
-        shape = 6; col = lv_color_hex(0xFF5A3C);
-    } else {
-        // Try type-code first, fall back to category
+    // Resolve shape for all aircraft (military included); military colour is forced red after.
+    {
         int ts = type_to_shape(typ);
         if (ts >= 0) {
             shape = ts;
-            // Colour by resolved shape
             if      (ts == 5) col = lv_color_hex(0xFFE11A);   // heli: yellow
             else if (ts == 7) col = lv_color_hex(0xD4AAFF);   // bizjet: lavender
             else if (ts == 2) col = lv_color_hex(0xC8FF3C);   // turboprop: lime
@@ -535,7 +532,11 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
             if   (cat[1] == '1') { shape = 5; col = lv_color_hex(0xFFE11A); }
             else                  { shape = 0; col = lv_color_hex(0xAAAAAA); }
         }
+        // Military with no known type: show delta wing as the generic military fallback
+        if (ac.military && ts < 0 && cat[0] != 'A' && cat[0] != 'B') shape = 6;
     }
+    // Military aircraft are always red regardless of shape
+    if (ac.military) col = lv_color_hex(0xFF5A3C);
 
     lv_draw_rect_dsc_t g;
     lv_draw_rect_dsc_init(&g);
