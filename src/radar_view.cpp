@@ -133,11 +133,11 @@ static void show(lv_obj_t *o, bool v) {
 
 static lv_color_t alt_color(float altFt, bool onGround) {
     if (onGround)      return lv_color_hex(0x888888);
-    if (altFt < 3000)  return lv_color_hex(0xFF5A3C);
-    if (altFt < 10000) return lv_color_hex(0xFFB23C);
-    if (altFt < 20000) return lv_color_hex(0xC8FF3C);
-    if (altFt < 30000) return lv_color_hex(0x39FF14);
-    return lv_color_hex(0x3CE0FF);
+    if (altFt < 3000)  return lv_color_hex(0x00FF88);  // spring green (low alt)
+    if (altFt < 10000) return lv_color_hex(0xFFB23C);  // amber
+    if (altFt < 20000) return lv_color_hex(0xC8FF3C);  // lime
+    if (altFt < 30000) return lv_color_hex(0x39FF14);  // green
+    return lv_color_hex(0x3CE0FF);                     // cyan (high alt)
 }
 
 static inline lv_point_t rim_point(float bearingDeg, float r) {
@@ -510,7 +510,7 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
     const char *typ = ac.type;   // ICAO type code e.g. "B738", "C172", "GLF5"
 
     if (ac.military) {
-        shape = 6; col = lv_color_hex(0xFF00CC);
+        shape = 6; col = lv_color_hex(0xFF5A3C);
     } else {
         // Try type-code first, fall back to category
         int ts = type_to_shape(typ);
