@@ -162,6 +162,14 @@ static void play_cue(int cue) {
             i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
             delay(40);
         }
+    } else if (cue == AUDIO_RARE) {
+        // Triple ascending beep — distinct from single (new) and double (alert)
+        const float freqs[3] = {880.0f, 1320.0f, 1760.0f};
+        for (int k = 0; k < 3; ++k) {
+            size_t ns = gen_beep(buf, S_BUF_LEN, freqs[k], 100, amp);
+            i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
+            delay(50);
+        }
     } else {
         size_t ns = gen_beep(buf, S_BUF_LEN, 880.0f, 160, amp);
         i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);

@@ -9,6 +9,7 @@
 enum AudioCue {
     AUDIO_NEW   = 0,   // new aircraft entered range (soft single beep)
     AUDIO_ALERT = 1,   // emergency / military contact (urgent double beep)
+    AUDIO_RARE  = 3,   // rare/notable aircraft in range (triple ascending beep)
 };
 
 bool audio_begin();                 // init ES8311 + I2S + PA + playback task (call on core 1)

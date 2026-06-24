@@ -8,6 +8,7 @@
 #include "geo.h"
 #include "coastline.h"
 #include "airports.h"
+#include "rare_types.h"
 #include <lvgl.h>
 #include <math.h>
 #include <stdio.h>
@@ -108,6 +109,7 @@ struct AcDraw {
     lv_color_t color;
     bool       emergency;
     bool       military;
+    bool       rare;
     bool       inRange;
     char       hex[8];
     char       call[12];
@@ -753,6 +755,12 @@ static void ac_draw_cb(lv_event_t *e) {
                 h.color = COL_EMERG; h.width = 2; h.opa = 200;
                 lv_draw_arc(d, &h, &ac.pos, 16, 0, 360);
             }
+            if (ac.rare) {
+                lv_draw_arc_dsc_t h;
+                lv_draw_arc_dsc_init(&h);
+                h.color = lv_color_white(); h.width = 2; h.opa = 200;
+                lv_draw_arc(d, &h, &ac.pos, 20, 0, 360);
+            }
         }
 
         // selection ring(s)
@@ -1033,6 +1041,7 @@ void update(const std::vector<Aircraft> &aircraft, const RadarSettings &s) {
         d.color = alt_color(ac.altBaro, ac.onGround);
         d.emergency = acIsEmergency(ac.squawk);
         d.military  = ac.military;
+        d.rare      = (rare_type_name(ac.type.c_str()) != nullptr);
         snprintf(d.hex,      sizeof(d.hex),      "%s", ac.hex.c_str());
         snprintf(d.call,     sizeof(d.call),     "%s", ac.flight.c_str());
         snprintf(d.type,     sizeof(d.type),     "%s", ac.type.c_str());

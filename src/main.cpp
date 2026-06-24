@@ -19,6 +19,7 @@
 #include "battery.h"                 // AXP2101 battery gauge
 #include "rtc_pcf85063.h"            // PCF85063 RTC (offline clock + date)
 #include "audio.h"                   // ES8311 alert pings
+#include "rare_types.h"              // notable aircraft watchlist
 #include <set>                       // audio: track which contacts are in range
 #include <string>
 #include <WiFiManager.h>             // captive portal
@@ -41,6 +42,7 @@ static int                   g_brightnessDay = BRIGHTNESS_DEFAULT;   // user bri
 static int                   g_volume = 60;                          // alert volume 0..100 (web/NVS)
 static bool                  g_muted  = false;                       // mute alert pings
 static int                   g_alertMode = 2;                        // 0=off 1=emergencies 2=new+emergencies 3=military (web/NVS)
+static bool                  g_quietHours = false;                   // if true, mute alerts midnight–07:00 (web/NVS)
 static float                 g_proximityKm = 0.0f;                   // proximity alert radius, km (0=off) (web/NVS)
 static uint32_t              g_idleDimMs = IDLE_DIM_MS;              // dim after this idle time (0 = never)
 static bool                  g_showSweep = true;                     // rotating sweep line on/off (web/NVS)
@@ -175,6 +177,7 @@ static void loadSettings() {
     g_volume           = p.getInt("vol", 60);
     g_muted            = p.getBool("mute", false);
     g_alertMode        = p.getInt("alertmode", 2);
+    g_quietHours       = p.getBool("quiet", false);
     g_proximityKm      = p.getFloat("proxkm", 0.0f);
     g_useGps           = p.getBool("usegps", false);
     g_trailLen         = p.getInt("traillen", 2);
@@ -188,10 +191,17 @@ static void loadSettings() {
 // g_proximityKm > 0 also pings (once) when any aircraft crosses into that radius.
 static void checkAudioEvents() {
     if (!audio_present()) return;
-    static std::set<std::string> seen, seenProx;
+
+    // Quiet hours: silence all alerts midnight–07:00 if the feature is on
+    if (g_quietHours) {
+        struct tm ti;
+        if (getLocalTime(&ti, 0) && ti.tm_hour < 7) return;
+    }
+
+    static std::set<std::string> seen, seenProx, seenRare;
     static bool first = true;
     static uint32_t lastNew = 0;
-    std::set<std::string> now, nowProx;
+    std::set<std::string> now, nowProx, nowRare;
     for (const Aircraft &ac : g_snap) {
         const double d = geo::haversineKm(g_settings.homeLat, g_settings.homeLon, ac.lat, ac.lon);
         if (d > g_settings.rangeKm) continue;                 // in-range only
@@ -199,11 +209,23 @@ static void checkAudioEvents() {
         now.insert(hex);
         const bool isNew     = !first && !seen.count(hex);
         const bool emergency = acIsEmergency(ac.squawk);  // squawk 7500/7600/7700 only
+        const bool isRare    = (rare_type_name(ac.type.c_str()) != nullptr);
 
         // proximity: fire once, when an aircraft first crosses into the radius (any aircraft)
         if (g_proximityKm > 0.0f && d <= g_proximityKm) {
             nowProx.insert(hex);
             if (!first && !seenProx.count(hex)) audio_play(AUDIO_ALERT);
+        }
+
+        // rare aircraft: triple ascending beep once per hex, regardless of alert mode
+        // (only suppressed by mute / quiet hours, not by the alert mode dropdown)
+        if (isRare) {
+            nowRare.insert(hex);
+            if (!first && !seenRare.count(hex)) {
+                const char *name = rare_type_name(ac.type.c_str());
+                Serial.printf("[rare] %s (%s) in range!\n", name, ac.type.c_str());
+                audio_play(AUDIO_RARE);
+            }
         }
 
         // new-in-range pings (on entry), gated by the alert mode
@@ -220,6 +242,7 @@ static void checkAudioEvents() {
     }
     seen.swap(now);
     seenProx.swap(nowProx);
+    seenRare.swap(nowRare);
     first = false;
 }
 
@@ -423,6 +446,7 @@ static void handleRoot() {
         "<label>Volume</label>"
         "<input type=range min=0 max=100 value='%d' oninput='v(this.value,0)' onchange='v(this.value,1)'>"
         "<label><input type=checkbox class=ck %s onchange='m(this.checked)'>Mute alerts</label>"
+        "<label><input type=checkbox class=ck %s onchange='qh(this.checked)'>Quiet hours (silent midnight&ndash;7am)</label>"
         "<label>Alert on</label><select onchange='al(this.value)'>%s</select>"
         "<label>Proximity alert</label><select onchange='px(this.value)'>%s</select>"
         "<button type=button class=sec onclick='t()'>Test ping</button></div>"
@@ -450,6 +474,7 @@ static void handleRoot() {
         "function u(v){fetch('/units?v='+v+'&save=1')}"
         "function al(v){fetch('/alerts?mode='+v+'&save=1')}"
         "function px(v){fetch('/alerts?prox='+v+'&save=1')}"
+        "function qh(c){fetch('/alerts?quiet='+(c?1:0)+'&save=1')}"
         "function gp(c){fetch('/gps?v='+(c?1:0)+'&save=1')}"
         // auto-pick the visitor's time zone from their browser clock (only if they haven't set one)
         "var TZSET=%d;(function(){if(TZSET)return;"
@@ -463,7 +488,7 @@ static void handleRoot() {
         tzopts.c_str(),
         g_brightnessDay, iopts.c_str(), g_showSweep ? "checked" : "",
         g_showAirports ? "checked" : "", tlopts.c_str(), rotopts.c_str(), uopts.c_str(),
-        g_volume, g_muted ? "checked" : "", aopts.c_str(), popts.c_str(),
+        g_volume, g_muted ? "checked" : "", g_quietHours ? "checked" : "", aopts.c_str(), popts.c_str(),
         g_settings.homeLat, g_settings.homeLon, (g_tz == TZ_STR ? 0 : 1));
     g_web.send(200, "text/html", buf);
 }
@@ -535,13 +560,15 @@ static void handleVol() {
 }
 
 static void handleAlerts() {   // what triggers the alert sound (live)
-    if (g_web.hasArg("mode")) g_alertMode   = constrain((int)g_web.arg("mode").toInt(), 0, 3);
-    if (g_web.hasArg("prox")) g_proximityKm = g_web.arg("prox").toFloat();   // km (0 = off)
+    if (g_web.hasArg("mode"))  g_alertMode   = constrain((int)g_web.arg("mode").toInt(), 0, 3);
+    if (g_web.hasArg("prox"))  g_proximityKm = g_web.arg("prox").toFloat();   // km (0 = off)
+    if (g_web.hasArg("quiet")) g_quietHours  = g_web.arg("quiet").toInt() != 0;
     if (g_web.hasArg("save")) {
         Preferences p;
         p.begin("capsuleradar", false);
         p.putInt("alertmode", g_alertMode);
         p.putFloat("proxkm", g_proximityKm);
+        p.putBool("quiet", g_quietHours);
         p.end();
     }
     g_web.send(200, "text/plain", "ok");
