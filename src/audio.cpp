@@ -191,26 +191,30 @@ static void play_cue(int cue) {
         size_t ns = gen_beep(buf, S_BUF_LEN, 1000.0f, 480, amp);
         for (int k = 0; k < 4; ++k) i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
     } else if (cue == AUDIO_NEW) {
-        // Sonar ping: 700 Hz, 500 ms exponential decay — classic radar room feel
-        size_t ns = gen_ping(buf, S_BUF_LEN, 700.0f, 500, amp);
+        // Sonar ping: 880 Hz, 450 ms exponential decay
+        size_t ns = gen_ping(buf, S_BUF_LEN, 880.0f, 450, amp);
         i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
     } else if (cue == AUDIO_ALERT) {
-        // GPWS-style emergency: rising sweep 380→900 Hz × 2 — urgent "whoop whoop"
+        // GPWS-style emergency: fast rising sweep 600→1500 Hz × 2 — urgent whoop whoop
         for (int k = 0; k < 2; ++k) {
-            size_t ns = gen_sweep(buf, S_BUF_LEN, 380.0f, 900.0f, 280, amp);
+            size_t ns = gen_sweep(buf, S_BUF_LEN, 600.0f, 1500.0f, 260, amp);
             i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
-            delay(60);
+            delay(80);
         }
     } else if (cue == AUDIO_MILITARY) {
-        // Radar lock warning: three rapid high-pitched pips — fighter jet missile lock
+        // Radar lock warning: "deedle deedle" — alternating 1200/1800 Hz pairs × 3
+        // This is the classic fighter jet radar-lock tone, immediately recognisable
         for (int k = 0; k < 3; ++k) {
-            size_t ns = gen_beep(buf, S_BUF_LEN, 1800.0f, 55, amp);
+            size_t ns;
+            ns = gen_beep(buf, S_BUF_LEN, 1200.0f, 80, amp);
             i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
-            delay(65);
+            ns = gen_beep(buf, S_BUF_LEN, 1800.0f, 80, amp);
+            i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
+            delay(35);
         }
     } else if (cue == AUDIO_RARE) {
-        // Vintage radar room ping: mellow 440 Hz, longer exponential decay
-        size_t ns = gen_ping(buf, S_BUF_LEN, 440.0f, 700, amp * 0.85f);
+        // Vintage radar: descending sweep 1600→700 Hz — distinct "boing" feel
+        size_t ns = gen_sweep(buf, S_BUF_LEN, 1600.0f, 700.0f, 600, amp * 0.9f);
         i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
     }
     delay(90);
