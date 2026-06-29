@@ -60,6 +60,74 @@ static volatile bool         g_feedOk = true;                        // ADS-B fe
 static int                   g_milSeen  = 0;                         // session: military contacts seen
 static int                   g_rareSeen = 0;                         // session: rare contacts seen
 static char                  g_rareLog[320] = "";                    // session: last 5 rare sightings
+
+// ---- persistent sighting log (rare / military / emergency) ----
+struct Sighting {
+    uint32_t ts;        // unix timestamp (0 = invalid)
+    char     kind;      // 'R'=rare 'M'=military 'E'=emergency
+    char     name[32];  // rare name or ICAO type
+    char     call[12];  // callsign
+    float    alt;       // altitude ft
+    float    dist;      // distance km
+};
+static const int MAX_SIGHTINGS = 48;
+static Sighting  g_slog[MAX_SIGHTINGS];
+static int       g_slogN = 0;
+
+static void slog_save() {
+    // Pack as pipe-delimited records, one per line, into a single NVS string
+    static char buf[4096];
+    int pos = 0;
+    for (int i = 0; i < g_slogN && pos < 3900; ++i) {
+        const Sighting &s = g_slog[i];
+        pos += snprintf(buf + pos, sizeof(buf) - pos, "%u|%c|%s|%s|%.0f|%.1f\n",
+                        s.ts, s.kind, s.name, s.call, (double)s.alt, (double)s.dist);
+    }
+    buf[pos] = '\0';
+    Preferences p; p.begin("capsuleradar", false);
+    p.putString("slog", buf); p.end();
+}
+
+static void slog_load() {
+    Preferences p; p.begin("capsuleradar", true);
+    String raw = p.getString("slog", ""); p.end();
+    g_slogN = 0;
+    const char *line = raw.c_str();
+    while (*line && g_slogN < MAX_SIGHTINGS) {
+        Sighting &s = g_slog[g_slogN];
+        char name[32], call[12]; float alt, dist; char kind; uint32_t ts;
+        if (sscanf(line, "%u|%c|%31[^|]|%11[^|]|%f|%f", &ts, &kind, name, call, &alt, &dist) == 6) {
+            s.ts = ts; s.kind = kind;
+            snprintf(s.name, sizeof(s.name), "%s", name);
+            snprintf(s.call, sizeof(s.call), "%s", call);
+            s.alt = alt; s.dist = dist;
+            g_slogN++;
+        }
+        const char *nl = strchr(line, '\n');
+        if (!nl) break; line = nl + 1;
+    }
+}
+
+static void slog_add(char kind, const char *name, const char *call, float alt, float dist) {
+    const time_t now = time(nullptr);
+    if (now < 1700000000L) return;   // no valid time yet, skip
+    // Avoid duplicate within 60 s (same kind + callsign)
+    for (int i = 0; i < g_slogN; ++i) {
+        if (g_slog[i].kind == kind && strcmp(g_slog[i].call, call) == 0 &&
+            (uint32_t)now - g_slog[i].ts < 60) return;
+    }
+    // Shift down if full
+    if (g_slogN >= MAX_SIGHTINGS) {
+        memmove(&g_slog[0], &g_slog[1], sizeof(Sighting) * (MAX_SIGHTINGS - 1));
+        g_slogN = MAX_SIGHTINGS - 1;
+    }
+    Sighting &s = g_slog[g_slogN++];
+    s.ts = (uint32_t)now; s.kind = kind;
+    snprintf(s.name, sizeof(s.name), "%s", name ? name : "");
+    snprintf(s.call, sizeof(s.call), "%s", call ? call : "");
+    s.alt = alt; s.dist = dist;
+    slog_save();
+}
 static volatile uint32_t     g_lastFeedOkMs = 0;                     // millis() of the last good poll (HUD staleness)
 static volatile uint32_t     g_rebootAtMs = 0;                       // !=0: reboot when millis() reaches it (clean start after WiFi config)
 static String                g_tz = TZ_STR;                          // POSIX timezone (web-configurable, NVS); applied via configTzTime
@@ -228,6 +296,7 @@ static void checkAudioEvents() {
                 Serial.printf("[rare] %s (%s) in range!\n", name, ac.type.c_str());
                 audio_play(AUDIO_RARE);
                 g_rareSeen++;
+                slog_add('R', name, ac.flight.c_str(), ac.altBaro, (float)d);
                 // show toast overlay on the radar screen
                 ui_show_rare_notify(name, ac.flight.c_str());
                 // prepend to rare log (keep last 5 lines)
@@ -245,12 +314,15 @@ static void checkAudioEvents() {
 
         // new-in-range pings (on entry), gated by the alert mode
         if (isNew) {
-            if (ac.military) { g_milSeen++; ui_set_session_stats(g_milSeen, g_rareSeen, g_rareLog); }
+            if (ac.military) {
+                g_milSeen++;
+                slog_add('M', ac.type.c_str(), ac.flight.c_str(), ac.altBaro, (float)d);
+                ui_set_session_stats(g_milSeen, g_rareSeen, g_rareLog);
+            }
+            if (emergency) slog_add('E', ac.type.c_str(), ac.flight.c_str(), ac.altBaro, (float)d);
             if (g_alertMode == 3) {
-                // military only
                 if (ac.military) audio_play(AUDIO_MILITARY);
             } else if (g_alertMode == 4) {
-                // military + emergencies
                 if (ac.military)    audio_play(AUDIO_MILITARY);
                 else if (emergency) audio_play(AUDIO_ALERT);
             } else if (emergency && g_alertMode >= 1) {
@@ -474,7 +546,7 @@ static void handleRoot() {
         "<div class=card><div class=t>Network</div>"
         "<p style='color:#9affc8;font-size:13px;margin:0 0 4px'>Forget the saved WiFi and reopen the setup portal.</p>"
         "<form method=POST action=/wifi><button class=w>Reset WiFi</button></form></div>"
-        "<p class=ft>Reach me at <code>capsuleradar.local</code> &middot; <a href=/update style='color:#9affc8'>Firmware update</a> &middot; v" FW_VERSION "</p>"
+        "<p class=ft>Reach me at <code>capsuleradar.local</code> &middot; <a href=/stats style='color:#9affc8'>Sightings log</a> &middot; <a href=/update style='color:#9affc8'>Firmware update</a> &middot; v" FW_VERSION "</p>"
         "<script>"
         "var C=[%.5f,%.5f];var MAP=L.map('map').setView(C,10);"
         "L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'(c) OpenStreetMap'}).addTo(MAP);"
@@ -695,6 +767,104 @@ static void handleGps() {   // auto-set the centre point from the LC76G GPS (-G 
 }
 
 // ---- browser OTA: upload an app .bin over WiFi and self-flash ----
+static void handleStats() {
+    const time_t now = time(nullptr);
+    const uint32_t h24 = 86400, d7 = 604800;
+    int r24=0, m24=0, e24=0, r7=0, m7=0, e7=0;
+    for (int i = 0; i < g_slogN; ++i) {
+        const uint32_t age = (uint32_t)now - g_slog[i].ts;
+        if (g_slog[i].kind=='R') { if(age<=h24) r24++; if(age<=d7) r7++; }
+        if (g_slog[i].kind=='M') { if(age<=h24) m24++; if(age<=d7) m7++; }
+        if (g_slog[i].kind=='E') { if(age<=h24) e24++; if(age<=d7) e7++; }
+    }
+    // Build event rows (newest first)
+    static char *ebuf = (char*)ps_malloc(8192);
+    if (!ebuf) { g_web.send(500,"text/plain","oom"); return; }
+    int ep = 0;
+    for (int i = g_slogN - 1; i >= 0 && ep < 7800; --i) {
+        const Sighting &s = g_slog[i];
+        struct tm ti; const time_t st = s.ts; localtime_r(&st, &ti);
+        char tstr[20]; strftime(tstr, sizeof(tstr), "%d %b %H:%M", &ti);
+        const char *badge, *bcol;
+        if      (s.kind=='R') { badge="RARE";      bcol="#FFFFFF"; }
+        else if (s.kind=='M') { badge="MILITARY";  bcol="#FF5A3C"; }
+        else                  { badge="EMERGENCY"; bcol="#FF5A3C"; }
+        char altS[16];
+        if (s.alt <= 0) snprintf(altS, sizeof(altS), "GND");
+        else            snprintf(altS, sizeof(altS), "%.0f ft", (double)s.alt);
+        ep += snprintf(ebuf+ep, 8192-ep,
+            "<div class=ev>"
+            "<span class=badge style='border-color:%s;color:%s'>%s</span>"
+            "<span class=et>%s</span>"
+            "<span class=en>%s</span>"
+            "<span class=ec>%s</span>"
+            "<span class=ea>%s &nbsp; %.1f %s</span>"
+            "</div>",
+            bcol, bcol, badge, tstr,
+            s.name[0] ? s.name : "-",
+            s.call[0] ? s.call : "-",
+            altS, (double)s.dist * 0.539957f, "nm");
+    }
+    if (ep == 0) snprintf(ebuf, 8192, "<p style='color:#5f7a6c;text-align:center;margin:32px 0'>No sightings logged yet</p>");
+
+    static char *page = (char*)ps_malloc(12288);
+    if (!page) { g_web.send(500,"text/plain","oom"); return; }
+    snprintf(page, 12288,
+        "<!DOCTYPE html><html><head><meta charset=utf-8>"
+        "<meta name=viewport content='width=device-width,initial-scale=1'>"
+        "<title>Capsule Radar &mdash; Sightings</title><style>"
+        "*{box-sizing:border-box}"
+        "body{background:radial-gradient(circle at 50%% -10%%,#0a1f15,#04100a 70%%);"
+        "color:#cdd6d1;font-family:system-ui,sans-serif;margin:0 auto;padding:20px;max-width:520px;min-height:100vh}"
+        ".hd{display:flex;align-items:center;gap:12px;margin-bottom:16px}"
+        ".dot{width:44px;height:44px;border-radius:50%%;border:2px solid #1dff86;position:relative;"
+        "overflow:hidden;flex:0 0 auto;box-shadow:0 0 16px rgba(29,255,134,.4)}"
+        ".dot::before{content:'';position:absolute;inset:0;animation:sw 3s linear infinite;"
+        "background:conic-gradient(from 0deg,rgba(29,255,134,.65),transparent 55%%)}"
+        "@keyframes sw{to{transform:rotate(360deg)}}"
+        "h1{color:#1dff86;font-size:20px;margin:0}.sub{color:#6f8c7d;font-size:12px;margin:2px 0 0}"
+        ".card{background:rgba(10,20,14,.85);border:1px solid #1f3a2b;border-radius:14px;padding:16px;margin-bottom:14px}"
+        ".t{color:#1dff86;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;opacity:.85}"
+        ".grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center}"
+        ".stat{background:#0c1a12;border-radius:10px;padding:12px 6px}"
+        ".sv{font-size:28px;font-weight:700;color:#1dff86;line-height:1}"
+        ".sv.red{color:#FF5A3C}.sv.wh{color:#fff}"
+        ".sl{font-size:11px;color:#5f7a6c;margin-top:4px}"
+        ".sh{font-size:12px;color:#9affc8;margin-bottom:6px;opacity:.7}"
+        ".ev{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 0;"
+        "border-bottom:1px solid #1a2e20;font-size:13px}"
+        ".badge{border:1px solid;border-radius:4px;padding:1px 6px;font-size:10px;"
+        "letter-spacing:1px;font-weight:700;flex:0 0 auto}"
+        ".et{color:#5f7a6c;flex:0 0 auto;font-size:12px}"
+        ".en{color:#eafff3;font-weight:600;flex:1 1 120px}"
+        ".ec{color:#9affc8;flex:0 0 auto}"
+        ".ea{color:#5f7a6c;font-size:12px;flex:0 0 auto;margin-left:auto}"
+        "a{color:#1dff86;text-decoration:none}"
+        "</style></head><body>"
+        "<div class=hd><div class=dot></div><div>"
+        "<h1>Capsule Radar</h1><p class=sub>Sightings log</p></div></div>"
+        "<div class=card><div class=t>Last 24 hours</div>"
+        "<div class=grid>"
+        "<div class=stat><div class='sv wh'>%d</div><div class=sl>Rare</div></div>"
+        "<div class=stat><div class='sv red'>%d</div><div class=sl>Military</div></div>"
+        "<div class=stat><div class='sv red'>%d</div><div class=sl>Emergency</div></div>"
+        "</div></div>"
+        "<div class=card><div class=t>Last 7 days</div>"
+        "<div class=grid>"
+        "<div class=stat><div class='sv wh'>%d</div><div class=sl>Rare</div></div>"
+        "<div class=stat><div class='sv red'>%d</div><div class=sl>Military</div></div>"
+        "<div class=stat><div class='sv red'>%d</div><div class=sl>Emergency</div></div>"
+        "</div></div>"
+        "<div class=card><div class=t>All sightings</div>"
+        "<div class=sh>newest first &mdash; %d logged</div>"
+        "%s"
+        "</div>"
+        "<p style='text-align:center;margin-top:10px'><a href=/>&#8592; Settings</a></p>"
+        "</body></html>",
+        r24, m24, e24, r7, m7, e7, g_slogN, ebuf);
+    g_web.send(200, "text/html", page);
+}
+
 static void handleUpdatePage() {
     g_web.send(200, "text/html",
         "<!DOCTYPE html><html><head><meta charset=utf-8>"
@@ -750,6 +920,7 @@ void setup() {
 
     loadSettings();
     route_cache_begin();   // clear stale route cache if the label format changed
+    slog_load();           // restore persistent sighting log from NVS
 
     // --- Display + LVGL (M0) ----------------------------------------------
     // CO5300 AMOLED over QSPI + LVGL draw buffers in PSRAM, then a hello screen.
@@ -848,6 +1019,7 @@ void setup() {
     g_web.on("/rotate", handleRotate);
     g_web.on("/gps", handleGps);
     g_web.on("/units", handleUnits);
+    g_web.on("/stats", handleStats);
     g_web.on("/update", HTTP_GET, handleUpdatePage);
     g_web.on("/update", HTTP_POST,
         []() {
