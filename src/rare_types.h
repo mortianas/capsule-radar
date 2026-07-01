@@ -22,7 +22,6 @@ static const RareType RARE_TYPES[] = {
     { "P47",  "P-47 Thunderbolt" },
     { "P38",  "P-38 Lightning" },
     { "DC3",  "DC-3 / C-47 Dakota" },
-    { "T6",   "Harvard / T-6 Texan" },
     { "TIGM", "Tiger Moth" },
     { "BEAU", "Bristol Beaufighter" },
     { "BLEN", "Bristol Blenheim" },
