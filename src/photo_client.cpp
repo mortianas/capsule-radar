@@ -42,10 +42,12 @@ static bool http_get(const char *url, uint8_t **out, size_t *outLen, size_t maxL
     http.setReuse(true);
     http.setConnectTimeout(3000);    // keep short: this runs on the feed task, a slow photo
     http.setTimeout(6000);           // server must not freeze the live aircraft poll for long
-    if (!http.begin(cli, url)) { Serial.println("[photo]   http.begin failed"); return false; }
+    if (!http.begin(cli, url)) { Serial.println("[photo]   http.begin failed"); cli.stop(); return false; }
     http.setUserAgent(PS_UA);   // planespotters rejects the default UA; set the canonical one
     const int code = http.GET();
-    if (code != 200) { Serial.printf("[photo]   HTTP %d\n", code); http.end(); return false; }
+    // Clean teardown on failure: don't let a wedged persistent client keep returning
+    // -1 forever or hold its socket out of the small LWIP pool.
+    if (code != 200) { Serial.printf("[photo]   HTTP %d\n", code); http.end(); cli.stop(); return false; }
 
     const int len = http.getSize();                  // >0 = Content-Length; -1 = chunked/unknown
     uint8_t *buf = nullptr;

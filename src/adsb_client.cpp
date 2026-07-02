@@ -65,12 +65,22 @@ bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
     http.setReuse(true);             // keep the TCP+TLS connection alive between polls
     http.setConnectTimeout(6000);    // fail reasonably fast: a slow host must not block the
     http.setTimeout(8000);           // task (and the user's route/photo lookups) for too long
-    if (!http.begin(client, url)) { Serial.printf("[adsb] begin failed (%s)\n", host); return false; }
+    if (!http.begin(client, url)) { Serial.printf("[adsb] begin failed (%s)\n", host); client.stop(); return false; }
     http.addHeader("User-Agent", ADSB_USER_AGENT);
     http.addHeader("Accept", "application/json");
 
     const int code = http.GET();
-    if (code != 200) { Serial.printf("[adsb] HTTP %d (%s)\n", code, host); http.end(); return false; }
+    if (code != 200) {
+        // A reused persistent client can wedge: once the server drops the kept-alive
+        // connection (Cloudflare recycles it after ~100s), the stale socket keeps
+        // returning -1 forever and never re-handshakes — and the dead socket is never
+        // released back to the small LWIP pool, so eventually every host fails at once.
+        // Force a full teardown so the NEXT poll opens a fresh TCP+TLS connection.
+        Serial.printf("[adsb] HTTP %d (%s)\n", code, host);
+        http.end();
+        client.stop();
+        return false;
+    }
 
     // Only keep the fields we use -> much smaller parsed document.
     JsonDocument filter(&s_jsonPsram);

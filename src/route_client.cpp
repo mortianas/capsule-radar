@@ -117,11 +117,13 @@ bool route_fetch(const char *callsign, char *from, size_t fn, char *to, size_t t
     http.setReuse(true);
     http.setConnectTimeout(3000);   // short: runs on the feed task, don't stall the live poll
     http.setTimeout(6000);
-    if (!http.begin(client, url)) return false;
+    if (!http.begin(client, url)) { client.stop(); return false; }
     http.addHeader("User-Agent", ADSB_USER_AGENT);
 
     const int code = http.GET();
-    if (code != 200) { http.end(); return false; }
+    // Force a clean teardown on failure so a wedged persistent client can't keep
+    // returning -1 forever (and can't hold its socket out of the small LWIP pool).
+    if (code != 200) { http.end(); client.stop(); return false; }
 
     JsonDocument filter(&s_jsonPsram);
     filter["response"]["flightroute"]["origin"]["municipality"] = true;
