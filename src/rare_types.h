@@ -48,7 +48,6 @@ static const RareType RARE_TYPES[] = {
     { "MG21", "MiG-21 Fishbed" },
     { "MG29", "MiG-29 Fulcrum" },
     { "SU27", "Su-27 Flanker" },
-    { "YK52", "Yakovlev Yak-52" },
 
     // ── MODERN UK / NATO FAST JETS ───────────────────────────────────────────
     { "EUFI", "Eurofighter Typhoon" },
