@@ -526,23 +526,25 @@ static void handleRoot() {
         "<label>Theme</label><select name=theme>%s</select>"
         "<label>Time zone</label><select name=tz>%s</select>"
         "<button>Save &amp; restart</button></form></div>"
+        "<form method=POST action=/saveds>"
         "<div class=card><div class=t>Display</div>"
         "<label>Brightness</label>"
-        "<input type=range min=5 max=255 value='%d' oninput='b(this.value,0)' onchange='b(this.value,1)'>"
-        "<label>Dim screen after</label><select onchange='d(this.value)'>%s</select>"
-        "<label><input type=checkbox class=ck %s onchange='sw(this.checked)'>Show radar sweep</label>"
-        "<label><input type=checkbox class=ck %s onchange='ap(this.checked)'>Show airports</label>"
-        "<label>Aircraft trails</label><select onchange='tl(this.value)'>%s</select>"
-        "<label>Screen rotation (USB-C position)</label><select onchange='ro(this.value)'>%s</select>"
-        "<label>Units</label><select onchange='u(this.value)'>%s</select></div>"
+        "<input name=bright type=range min=5 max=255 value='%d' oninput='b(this.value,0)'>"
+        "<label>Dim screen after</label><select name=idle>%s</select>"
+        "<label><input name=sweep type=checkbox value=1 class=ck %s>Show radar sweep</label>"
+        "<label><input name=airports type=checkbox value=1 class=ck %s>Show airports</label>"
+        "<label>Aircraft trails</label><select name=trail>%s</select>"
+        "<label>Screen rotation (USB-C position)</label><select name=rot>%s</select>"
+        "<label>Units</label><select name=units>%s</select></div>"
         "<div class=card><div class=t>Sound</div>"
         "<label>Volume</label>"
-        "<input type=range min=0 max=100 value='%d' oninput='v(this.value,0)' onchange='v(this.value,1)'>"
-        "<label><input type=checkbox class=ck %s onchange='m(this.checked)'>Mute alerts</label>"
-        "<label><input type=checkbox class=ck %s onchange='qh(this.checked)'>Quiet hours (silent midnight&ndash;7am)</label>"
-        "<label>Alert on</label><select onchange='al(this.value)'>%s</select>"
-        "<label>Proximity alert</label><select onchange='px(this.value)'>%s</select>"
-        "<button type=button class=sec onclick='t()'>Test ping</button></div>"
+        "<input name=vol type=range min=0 max=100 value='%d' oninput='v(this.value,0)'>"
+        "<label><input name=mute type=checkbox value=1 class=ck %s>Mute alerts</label>"
+        "<label><input name=quiet type=checkbox value=1 class=ck %s>Quiet hours (silent midnight&ndash;7am)</label>"
+        "<label>Alert on</label><select name=alertmode>%s</select>"
+        "<label>Proximity alert</label><select name=proxkm>%s</select>"
+        "<button type=button class=sec onclick='t()' style='margin-bottom:8px'>Test ping</button>"
+        "<button style='width:100%'>Save Display &amp; Sound</button></div></form>"
         "<div class=card><div class=t>Network</div>"
         "<p style='color:#9affc8;font-size:13px;margin:0 0 4px'>Forget the saved WiFi and reopen the setup portal.</p>"
         "<form method=POST action=/wifi><button class=w>Reset WiFi</button></form></div>"
@@ -613,6 +615,27 @@ static void handleSave() {
         "font-family:sans-serif;padding:24px'>Saved. Restarting&hellip;</body>");
     delay(400);
     ESP.restart();
+}
+
+static void handleSaveDS() {   // save all display + sound settings in one POST
+    Preferences p;
+    p.begin("capsuleradar", false);
+    if (g_web.hasArg("bright"))    { g_brightnessDay = constrain((int)g_web.arg("bright").toInt(), 0, 255); applyBrightness(); p.putInt("bright", g_brightnessDay); }
+    if (g_web.hasArg("idle"))      { const long s = g_web.arg("idle").toInt(); g_idleDimMs = s <= 0 ? 0 : (uint32_t)s * 1000; p.putUInt("idledim", g_idleDimMs); }
+    if (g_web.hasArg("sweep"))     { g_showSweep = g_web.arg("sweep").toInt() != 0; radar::setSweepEnabled(g_showSweep); p.putBool("sweep", g_showSweep); }
+    if (g_web.hasArg("airports"))  { g_showAirports = g_web.arg("airports").toInt() != 0; radar::setAirportsEnabled(g_showAirports); p.putBool("airports", g_showAirports); }
+    if (g_web.hasArg("trail"))     { g_trailLen = constrain((int)g_web.arg("trail").toInt(), 0, 3); radar::setTrailLength(g_trailLen); p.putInt("traillen", g_trailLen); }
+    if (g_web.hasArg("rot"))       { g_rotation = constrain((int)g_web.arg("rot").toInt(), 0, 3); radar::setRotation(g_rotation); p.putInt("rot", g_rotation); }
+    if (g_web.hasArg("units"))     { g_units = constrain((int)g_web.arg("units").toInt(), 0, 2); ui_set_units(g_units); ui_set_range_km(g_settings.rangeKm); ui_on_data_updated(); p.putInt("units", g_units); }
+    if (g_web.hasArg("vol"))       { g_volume = constrain((int)g_web.arg("vol").toInt(), 0, 100); audio_set_volume(g_volume); p.putInt("vol", g_volume); }
+    if (g_web.hasArg("mute"))      { g_muted = g_web.arg("mute").toInt() != 0; audio_set_muted(g_muted); p.putBool("mute", g_muted); }
+    if (g_web.hasArg("quiet"))     { g_quietHours = g_web.arg("quiet").toInt() != 0; p.putBool("quiet", g_quietHours); }
+    if (g_web.hasArg("alertmode")) { g_alertMode = constrain((int)g_web.arg("alertmode").toInt(), 0, 4); p.putInt("alertmode", g_alertMode); }
+    if (g_web.hasArg("proxkm"))    { g_proximityKm = g_web.arg("proxkm").toFloat(); p.putFloat("proxkm", g_proximityKm); }
+    p.end();
+    g_web.send(200, "text/html",
+        "<meta http-equiv=refresh content='3;url=/'><body style='background:#06100a;color:#1dff86;"
+        "font-family:sans-serif;padding:24px'>Display &amp; Sound saved.</body>");
 }
 
 static void handleWifi() {
@@ -1011,6 +1034,7 @@ void setup() {
     // configuration web page (http://capsuleradar.local/)
     g_web.on("/", handleRoot);
     g_web.on("/save", HTTP_POST, handleSave);
+    g_web.on("/saveds", HTTP_POST, handleSaveDS);
     g_web.on("/wifi", HTTP_POST, handleWifi);
     g_web.on("/bright", handleBright);
     g_web.on("/vol", handleVol);
