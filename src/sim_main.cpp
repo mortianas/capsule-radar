@@ -7,6 +7,12 @@
 //
 // Note: the real panel is a 466x466 *round* AMOLED; this square window shows the
 // full buffer, so the corners (hidden on the device) are visible here.
+//
+// Device builds must never compile this file (it pulls in SDL and defines its own
+// main()). The `native` env selects it via build_src_filter, but the ESP-IDF build
+// mode (enabled by custom_sdkconfig) ignores src_filter -> guard it explicitly so it
+// compiles to nothing on any ESP32 target. ESP_PLATFORM is defined for all ESP32 builds.
+#if !defined(ESP_PLATFORM)
 #include <SDL.h>
 #include <lvgl.h>
 #include <stdio.h>
@@ -289,3 +295,4 @@ int main(int argc, char **argv) {
     SDL_Quit();
     return 0;
 }
+#endif  // !ESP_PLATFORM
