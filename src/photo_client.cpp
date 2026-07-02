@@ -35,10 +35,11 @@ static bool jpg_out(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bmp)
 // GET a URL into a freshly heap_caps(PSRAM) buffer. Caller frees with heap_caps_free.
 static bool http_get(const char *url, uint8_t **out, size_t *outLen, size_t maxLen) {
     *out = nullptr; *outLen = 0;
-    WiFiClientSecure cli;
-    cli.setInsecure();
+    static WiFiClientSecure cli;
+    static bool initDone = false;
+    if (!initDone) { cli.setInsecure(); initDone = true; }
     HTTPClient http;
-    http.setReuse(false);
+    http.setReuse(true);
     http.setConnectTimeout(3000);    // keep short: this runs on the feed task, a slow photo
     http.setTimeout(6000);           // server must not freeze the live aircraft poll for long
     if (!http.begin(cli, url)) { Serial.println("[photo]   http.begin failed"); return false; }
