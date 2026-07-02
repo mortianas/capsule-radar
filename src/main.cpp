@@ -484,7 +484,7 @@ static void handleRoot() {
         gpsRow += "<div style='font-size:12px;opacity:.6;margin:-2px 0 6px'>"
                   "When on, the location above is used until the GPS gets a fix, then it takes over.</div>";
     }
-    static const size_t BUFSZ = 10240;
+    static const size_t BUFSZ = 20480;
     static char *buf = (char *)ps_malloc(BUFSZ);   // PSRAM: keep this big page buffer off the scarce
     if (!buf) return;                              //   internal heap (the contiguous RAM mbedTLS needs)
     snprintf(buf, BUFSZ,
@@ -549,11 +549,12 @@ static void handleRoot() {
         "<button type=button class=sec onclick='t()' style='margin-bottom:8px'>Test ping</button>"
         "<button style='width:100%'>Save Display &amp; Sound</button></div></form>"
         "<div class=card><div class=t>Network</div>"
-        "<p style='color:#9affc8;font-size:13px;margin:0 0 4px'>Forget the saved WiFi and reopen the setup portal.</p>"
-        "<form method=POST action=/wifi><button class=w>Reset WiFi</button></form></div>"
+        "<p style='color:#9affc8;font-size:13px;margin:0 0 4px'>Forget saved WiFi &mdash; device reboots into setup portal.</p>"
+        "<form method=POST action=/wifi onsubmit='return confirm(\"Forget WiFi and reboot into setup mode?\")'>"
+        "<button class=w style='margin-top:8px'>Reset WiFi &amp; Reboot</button></form></div>"
         "<div class=card><div class=t>Logs &amp; Updates</div>"
-        "<a href=/stats style='text-decoration:none'><button type=button style='width:100%;margin-bottom:8px'>Sightings Log</button></a>"
-        "<a href=/update style='text-decoration:none'><button type=button class=sec style='width:100%'>Firmware Update</button></a></div>"
+        "<input type=button onclick=\"location='/stats'\" value='Sightings Log' style='width:100%;margin-bottom:8px;margin-top:0;cursor:pointer'>"
+        "<input type=button onclick=\"location='/update'\" class=sec value='Firmware Update' style='width:100%;margin-top:0;cursor:pointer'></div>"
         "<p class=ft>Reach me at <code>capsuleradar.local</code> &middot; v" FW_VERSION "</p>"
         "<script>"
         "var C=[%.5f,%.5f];var MAP=L.map('map').setView(C,10);"
