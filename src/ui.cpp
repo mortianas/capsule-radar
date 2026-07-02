@@ -4,7 +4,6 @@
 #include "radar_view.h"
 #include "route.h"
 #include "photo.h"
-#include "splash_img.h"
 #include "config.h"
 #include <lvgl.h>
 #include <stdio.h>
@@ -497,56 +496,41 @@ void ui_splash_show(void) {
     lv_obj_set_style_bg_opa(cont, LV_OPA_COVER, 0);
     lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
 
-    // pilot portrait — circular clipped
-    static const lv_img_dsc_t pilot_dsc = {
-        .header = {
-            .cf          = LV_IMG_CF_TRUE_COLOR,
-            .always_zero = 0,
-            .w           = SPLASH_IMG_W,
-            .h           = SPLASH_IMG_H,
-        },
-        .data_size = (uint32_t)(SPLASH_IMG_W * SPLASH_IMG_H * 2),
-        .data      = (const uint8_t *)SPLASH_IMG_DATA,
-    };
-
-    lv_obj_t *clip = lv_obj_create(cont);
-    lv_obj_remove_style_all(clip);
-    lv_obj_set_size(clip, SPLASH_IMG_W, SPLASH_IMG_H);
-    lv_obj_align(clip, LV_ALIGN_CENTER, 0, -42);
-    lv_obj_set_style_radius(clip, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_clip_corner(clip, true, 0);
-    lv_obj_set_style_bg_opa(clip, LV_OPA_TRANSP, 0);
-    lv_obj_clear_flag(clip, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *img = lv_img_create(clip);
-    lv_img_set_src(img, &pilot_dsc);
-    lv_obj_set_pos(img, 0, 0);
-
-    // green ring border around portrait
-    lv_obj_t *ring = lv_obj_create(cont);
-    lv_obj_remove_style_all(ring);
-    lv_obj_set_size(ring, SPLASH_IMG_W + 6, SPLASH_IMG_H + 6);
-    lv_obj_align(ring, LV_ALIGN_CENTER, 0, -42);
-    lv_obj_set_style_radius(ring, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_border_color(ring, UI_GREEN, 0);
-    lv_obj_set_style_border_width(ring, 3, 0);
-    lv_obj_set_style_bg_opa(ring, LV_OPA_TRANSP, 0);
-    lv_obj_clear_flag(ring, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_move_to_index(ring, -1);
+    // concentric rings
+    const lv_coord_t dia[3] = { 210, 142, 78 };
+    const lv_opa_t   op[3]  = { 90, 120, 160 };
+    for (int i = 0; i < 3; ++i) {
+        lv_obj_t *r = lv_obj_create(cont);
+        lv_obj_remove_style_all(r);
+        lv_obj_set_size(r, dia[i], dia[i]);
+        lv_obj_align(r, LV_ALIGN_CENTER, 0, -8);
+        lv_obj_set_style_radius(r, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_border_color(r, UI_GREEN, 0);
+        lv_obj_set_style_border_opa(r, op[i], 0);
+        lv_obj_set_style_border_width(r, 2, 0);
+        lv_obj_clear_flag(r, LV_OBJ_FLAG_SCROLLABLE);
+    }
+    // rotating sweep
+    lv_obj_t *sweep = lv_spinner_create(cont, 1400, 55);
+    lv_obj_set_size(sweep, 210, 210);
+    lv_obj_align(sweep, LV_ALIGN_CENTER, 0, -8);
+    lv_obj_set_style_arc_opa(sweep, 0, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(sweep, UI_GREEN, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(sweep, 4, LV_PART_INDICATOR);
 
     lv_obj_t *title = lv_label_create(cont);
     lv_label_set_text(title, "CAPSULE RADAR");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_28, 0);
     lv_obj_set_style_text_color(title, UI_GREEN, 0);
-    lv_obj_align(title, LV_ALIGN_CENTER, 0, 102);
+    lv_obj_align(title, LV_ALIGN_CENTER, 0, 118);
 
     lv_obj_t *sub = lv_label_create(cont);
     lv_label_set_text(sub, "Live ADS-B radar");
     lv_obj_set_style_text_font(sub, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(sub, UI_SOFT, 0);
-    lv_obj_align(sub, LV_ALIGN_CENTER, 0, 134);
+    lv_obj_align(sub, LV_ALIGN_CENTER, 0, 150);
 
-    lv_timer_t *t = lv_timer_create(splash_dismiss_cb, 2000, cont);   // 2 s hold, then fade
+    lv_timer_t *t = lv_timer_create(splash_dismiss_cb, 2200, cont);   // hold, then fade out
     lv_timer_set_repeat_count(t, 1);
 }
 
