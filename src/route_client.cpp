@@ -7,6 +7,14 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
+#include <esp_heap_caps.h>
+
+struct PsramJsonAllocator : ArduinoJson::Allocator {
+    void* allocate(size_t n) override { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
+    void  deallocate(void* p) override { heap_caps_free(p); }
+    void* reallocate(void* p, size_t n) override { return heap_caps_realloc(p, n, MALLOC_CAP_SPIRAM); }
+};
+static PsramJsonAllocator s_jsonPsram;
 #include <string.h>
 #include <time.h>   // route-cache TTL
 
@@ -114,7 +122,7 @@ bool route_fetch(const char *callsign, char *from, size_t fn, char *to, size_t t
     const int code = http.GET();
     if (code != 200) { http.end(); return false; }
 
-    JsonDocument filter;
+    JsonDocument filter(&s_jsonPsram);
     filter["response"]["flightroute"]["origin"]["municipality"] = true;
     filter["response"]["flightroute"]["origin"]["iata_code"] = true;
     filter["response"]["flightroute"]["origin"]["name"] = true;
@@ -122,7 +130,7 @@ bool route_fetch(const char *callsign, char *from, size_t fn, char *to, size_t t
     filter["response"]["flightroute"]["destination"]["iata_code"] = true;
     filter["response"]["flightroute"]["destination"]["name"] = true;
 
-    JsonDocument doc;
+    JsonDocument doc(&s_jsonPsram);
     DeserializationError err = deserializeJson(doc, http.getStream(),
                                                DeserializationOption::Filter(filter));
     http.end();
