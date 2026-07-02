@@ -42,24 +42,28 @@ bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
     char url[160];
     snprintf(url, sizeof(url), "https://%s/v2/point/%.4f/%.4f/%.0f", host, _lat, _lon, nm);
 
-    // Persistent TLS clients — one per host. Creating a new WiFiClientSecure every poll
-    // allocates and frees a full mbedTLS context each time, fragmenting the internal heap
-    // until no contiguous block remains for the next handshake. Static lifetime means the
-    // context stays allocated and the TLS session can be resumed across polls (no new
-    // handshake needed when the underlying TCP connection is still alive).
-    // Buffer sizes: default 16 KB each way; our GET request is tiny and we stream the
-    // response, so 4 KB RX / 512 B TX is plenty and saves ~24 KB of internal RAM per client.
-    static WiFiClientSecure clientPrimary;
-    static WiFiClientSecure clientFallback;
+    // ONE shared TLS client for BOTH hosts (was: one persistent client per host).
+    // Diagnosis (serial [diag] probes during a wedge): raw TCP to a fixed IP and DNS
+    // both succeed, only the TLS *handshake* to the feed hosts fails — i.e. a fresh
+    // handshake can't get a big enough *contiguous* block of internal RAM. Each live
+    // WiFiClientSecure holds a ~16 KB mbedTLS input buffer; keeping two around (primary
+    // + fallback) during a host flap left too little contiguous RAM for a third, fresh
+    // handshake, so every poll failed until the self-heal reboot. With a single client,
+    // at most one 16 KB buffer is ever live, leaving headroom for the handshake. On a
+    // host switch we stop() first to free the previous host's TLS context.
+    static WiFiClientSecure client;
+    static const char* lastHost = nullptr;
     static bool initDone = false;
     if (!initDone) {
 #if ADSB_HTTPS_INSECURE
-        clientPrimary.setInsecure();
-        clientFallback.setInsecure();
+        client.setInsecure();
 #endif
         initDone = true;
     }
-    WiFiClientSecure& client = (strcmp(host, ADSB_PRIMARY_HOST) == 0) ? clientPrimary : clientFallback;
+    if (lastHost == nullptr || strcmp(lastHost, host) != 0) {
+        client.stop();          // switching host: free the old TLS context before the new handshake
+        lastHost = host;
+    }
 
     HTTPClient http;
     http.setReuse(true);             // keep the TCP+TLS connection alive between polls
