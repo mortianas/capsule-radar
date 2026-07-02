@@ -9,7 +9,8 @@ void ui_set_battery(int pct, bool charging, bool present);  // top HUD battery i
 void ui_set_date(const char *date);  // top HUD date line (e.g. "08 Jun 2026")
 void ui_set_netinfo(const char *line);  // stats view footer: how to reach the config page
 void ui_set_gps(int state, int sats);   // GPS indicator: state 0=off/hidden 1=acquiring 2=fix; HUD icon + Stats line
-void ui_splash_show(void);  // branded boot splash (auto-fades, covers init time)
+void ui_set_boot_photo(bool on);  // call before ui_create() to choose photo vs radar splash
+void ui_splash_show(bool photo);  // branded boot splash (auto-fades); photo=true shows pilot portrait
 void ui_set_range_cb(void (*cb)(float km));  // on-screen zoom button -> notify main
 void ui_set_range_km(float km);              // update the zoom button label / sync the cycle
 void ui_set_units(int preset);               // 0 = Aviation (ft,kt,km) · 1 = Metric (m,km/h,km) · 2 = Imperial (ft,mph,mi)

@@ -46,6 +46,7 @@ static bool                  g_quietHours = false;                   // if true,
 static float                 g_proximityKm = 0.0f;                   // proximity alert radius, km (0=off) (web/NVS)
 static uint32_t              g_idleDimMs = IDLE_DIM_MS;              // dim after this idle time (0 = never)
 static bool                  g_showSweep = true;                     // rotating sweep line on/off (web/NVS)
+static bool                  g_bootPhoto = true;                     // show pilot photo on boot splash (web/NVS)
 static int                   g_units = 0;                            // 0=Aviation 1=Metric 2=Imperial (web/NVS)
 static bool                  g_showAirports = true;                  // airport markers on/off (web/NVS)
 static int                   g_rotation = 0;                         // display rotation 0/1/2/3 = 0/90/180/270 (web/NVS)
@@ -254,6 +255,7 @@ static void loadSettings() {
     g_trailLen         = p.getInt("traillen", 2);
     g_idleDimMs        = p.getUInt("idledim", IDLE_DIM_MS);
     g_units            = p.getInt("units", 0);
+    g_bootPhoto        = p.getBool("bootphoto", true);
     g_tz               = p.getString("tz", TZ_STR);
     p.end();
 }
@@ -533,6 +535,7 @@ static void handleRoot() {
         "<label>Dim screen after</label><select name=idle>%s</select>"
         "<label><input name=sweep type=checkbox value=1 class=ck %s>Show radar sweep</label>"
         "<label><input name=airports type=checkbox value=1 class=ck %s>Show airports</label>"
+        "<label><input name=bootphoto type=checkbox value=1 class=ck %s>Show photo on boot screen</label>"
         "<label>Aircraft trails</label><select name=trail>%s</select>"
         "<label>Screen rotation (USB-C position)</label><select name=rot>%s</select>"
         "<label>Units</label><select name=units>%s</select></div>"
@@ -585,7 +588,7 @@ static void handleRoot() {
         g_settings.homeLat, g_settings.homeLon, gpsRow.c_str(), ropts.c_str(), topts.c_str(),
         tzopts.c_str(),
         g_brightnessDay, iopts.c_str(), g_showSweep ? "checked" : "",
-        g_showAirports ? "checked" : "", tlopts.c_str(), rotopts.c_str(), uopts.c_str(),
+        g_showAirports ? "checked" : "", g_bootPhoto ? "checked" : "", tlopts.c_str(), rotopts.c_str(), uopts.c_str(),
         g_volume, g_muted ? "checked" : "", g_quietHours ? "checked" : "", aopts.c_str(), popts.c_str(),
         g_settings.homeLat, g_settings.homeLon, (g_tz == TZ_STR ? 0 : 1));
     g_web.send(200, "text/html", buf);
@@ -623,6 +626,7 @@ static void handleSaveDS() {   // save all display + sound settings in one POST
     if (g_web.hasArg("bright"))    { g_brightnessDay = constrain((int)g_web.arg("bright").toInt(), 0, 255); applyBrightness(); p.putInt("bright", g_brightnessDay); }
     if (g_web.hasArg("idle"))      { const long s = g_web.arg("idle").toInt(); g_idleDimMs = s <= 0 ? 0 : (uint32_t)s * 1000; p.putUInt("idledim", g_idleDimMs); }
     if (g_web.hasArg("sweep"))     { g_showSweep = g_web.arg("sweep").toInt() != 0; radar::setSweepEnabled(g_showSweep); p.putBool("sweep", g_showSweep); }
+    g_bootPhoto = g_web.hasArg("bootphoto"); p.putBool("bootphoto", g_bootPhoto);
     if (g_web.hasArg("airports"))  { g_showAirports = g_web.arg("airports").toInt() != 0; radar::setAirportsEnabled(g_showAirports); p.putBool("airports", g_showAirports); }
     if (g_web.hasArg("trail"))     { g_trailLen = constrain((int)g_web.arg("trail").toInt(), 0, 3); radar::setTrailLength(g_trailLen); p.putInt("traillen", g_trailLen); }
     if (g_web.hasArg("rot"))       { g_rotation = constrain((int)g_web.arg("rot").toInt(), 0, 3); radar::setRotation(g_rotation); p.putInt("rot", g_rotation); }
@@ -952,6 +956,7 @@ void setup() {
     // CO5300 AMOLED over QSPI + LVGL draw buffers in PSRAM, then a hello screen.
     // The panel is powered from the always-on DC1 rail, so it lights without the
     // PMIC. Touch (CST9217 indev) + AXP2101 come in later milestones.
+    ui_set_boot_photo(g_bootPhoto);   // must be before display::begin() → ui_create()
     if (!display::begin()) {
         Serial.println("[!] display::begin() failed — check QSPI pins / power.");
     }
