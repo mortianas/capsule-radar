@@ -75,33 +75,11 @@ bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
 
     const int code = http.GET();
     if (code != 200) {
-        // A reused persistent client can wedge: once the server drops the kept-alive
-        // connection (Cloudflare recycles it after ~100s), the stale socket keeps
-        // returning -1 forever and never re-handshakes — and the dead socket is never
-        // released back to the small LWIP pool, so eventually every host fails at once.
-        // Force a full teardown so the NEXT poll opens a fresh TCP+TLS connection.
+        // Fully tear down the client on any failure so the next poll opens a fresh
+        // TCP+TLS connection instead of reusing a possibly-wedged one.
         Serial.printf("[adsb] HTTP %d (%s)\n", code, host);
         http.end();
         client.stop();
-        // --- DIAGNOSTIC (temporary): identify WHAT is exhausted when the feed wedges. ---
-        // Two independent probes, rate-limited so we don't add load:
-        //  (1) raw TCP to a FIXED IP (1.1.1.1:443) needs NO name lookup -> tests purely
-        //      whether we can still open a socket at all. FAIL here => connection-slot
-        //      (socket) pool exhausted.
-        //  (2) a name lookup of the host -> tests DNS resolution. If (1) is OK but this
-        //      FAILs, the problem is name resolution, not sockets.
-        // raw=OK & dns=OK  => sockets+DNS fine, failure is in the TLS layer.
-        static uint32_t s_lastDiag = 0;
-        if (millis() - s_lastDiag > 5000) {
-            s_lastDiag = millis();
-            WiFiClient probe;
-            const bool rawOk = probe.connect(IPAddress(1, 1, 1, 1), 443, 2000);
-            probe.stop();
-            IPAddress ip;
-            const bool dnsOk = WiFi.hostByName(host, ip);
-            Serial.printf("[diag] raw-TCP(1.1.1.1:443)=%s  DNS(%s)=%s\n",
-                          rawOk ? "OK" : "FAIL", host, dnsOk ? "OK" : "FAIL");
-        }
         return false;
     }
 

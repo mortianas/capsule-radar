@@ -1,7 +1,7 @@
 #pragma once
 // Capsule Radar — build & user configuration.
 
-#define FW_VERSION "1.3.14"   // shown on the web config page + Stats screen; bump on release
+#define FW_VERSION "1.3.15"   // shown on the web config page + Stats screen; bump on release
 // Edit pins below: replace every -1 with the value from the Waveshare factory demo
 // (see docs/HARDWARE.md and docs/SETUP.md). Do NOT guess them.
 
@@ -42,7 +42,7 @@ static const float RANGE_STEPS_KM[] = {10.0f, 20.0f, 30.0f, 50.0f, 100.0f};
 #define ADSB_MAX_AIRCRAFT   60              // hard cap parsed per poll (protect RAM in busy areas)
 
 // ---------- Debug ----------
-#define DEBUG_MEM           1               // 1 = print a [mem] heap/fps line every 5s on serial
+#define DEBUG_MEM           0               // 1 = print a [mem] heap/fps line every 5s on serial
 
 // ---------- Pin map ----------
 // VERIFIED (ESPHome def, cross-checked against the Waveshare board definition in
