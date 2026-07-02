@@ -57,8 +57,6 @@ bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
         clientPrimary.setInsecure();
         clientFallback.setInsecure();
 #endif
-        clientPrimary.setBufferSizes(4096, 512);
-        clientFallback.setBufferSizes(4096, 512);
         initDone = true;
     }
     WiFiClientSecure& client = (strcmp(host, ADSB_PRIMARY_HOST) == 0) ? clientPrimary : clientFallback;
