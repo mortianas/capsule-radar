@@ -42,15 +42,29 @@ bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
     char url[160];
     snprintf(url, sizeof(url), "https://%s/v2/point/%.4f/%.4f/%.0f", host, _lat, _lon, nm);
 
-    WiFiClientSecure client;
+    // Persistent TLS clients — one per host. Creating a new WiFiClientSecure every poll
+    // allocates and frees a full mbedTLS context each time, fragmenting the internal heap
+    // until no contiguous block remains for the next handshake. Static lifetime means the
+    // context stays allocated and the TLS session can be resumed across polls (no new
+    // handshake needed when the underlying TCP connection is still alive).
+    // Buffer sizes: default 16 KB each way; our GET request is tiny and we stream the
+    // response, so 4 KB RX / 512 B TX is plenty and saves ~24 KB of internal RAM per client.
+    static WiFiClientSecure clientPrimary;
+    static WiFiClientSecure clientFallback;
+    static bool initDone = false;
+    if (!initDone) {
 #if ADSB_HTTPS_INSECURE
-    client.setInsecure();                              // hobby: skip cert validation
-#else
-    // client.setCACert(ROOT_CA_PEM);                  // production: pin the root CA
+        clientPrimary.setInsecure();
+        clientFallback.setInsecure();
 #endif
+        clientPrimary.setBufferSizes(4096, 512);
+        clientFallback.setBufferSizes(4096, 512);
+        initDone = true;
+    }
+    WiFiClientSecure& client = (strcmp(host, ADSB_PRIMARY_HOST) == 0) ? clientPrimary : clientFallback;
 
     HTTPClient http;
-    http.setReuse(false);
+    http.setReuse(true);             // keep the TCP+TLS connection alive between polls
     http.setConnectTimeout(6000);    // fail reasonably fast: a slow host must not block the
     http.setTimeout(8000);           // task (and the user's route/photo lookups) for too long
     if (!http.begin(client, url)) { Serial.printf("[adsb] begin failed (%s)\n", host); return false; }
