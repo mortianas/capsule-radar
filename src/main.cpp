@@ -629,7 +629,7 @@ static void handleSaveDS() {   // save all display + sound settings in one POST
     g_bootPhoto = g_web.hasArg("bootphoto"); p.putBool("bootphoto", g_bootPhoto);
     if (g_web.hasArg("airports"))  { g_showAirports = g_web.arg("airports").toInt() != 0; radar::setAirportsEnabled(g_showAirports); p.putBool("airports", g_showAirports); }
     if (g_web.hasArg("trail"))     { g_trailLen = constrain((int)g_web.arg("trail").toInt(), 0, 3); radar::setTrailLength(g_trailLen); p.putInt("traillen", g_trailLen); }
-    if (g_web.hasArg("rot"))       { g_rotation = constrain((int)g_web.arg("rot").toInt(), 0, 3); radar::setRotation(g_rotation); p.putInt("rot", g_rotation); }
+    if (g_web.hasArg("rot"))       { g_rotation = constrain((int)g_web.arg("rot").toInt(), 0, 3); display::setRotation(g_rotation); p.putInt("rot", g_rotation); }
     if (g_web.hasArg("units"))     { g_units = constrain((int)g_web.arg("units").toInt(), 0, 2); ui_set_units(g_units); ui_set_range_km(g_settings.rangeKm); ui_on_data_updated(); p.putInt("units", g_units); }
     if (g_web.hasArg("vol"))       { g_volume = constrain((int)g_web.arg("vol").toInt(), 0, 100); audio_set_volume(g_volume); p.putInt("vol", g_volume); }
     if (g_web.hasArg("mute"))      { g_muted = g_web.arg("mute").toInt() != 0; audio_set_muted(g_muted); p.putBool("mute", g_muted); }
