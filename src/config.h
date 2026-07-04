@@ -1,7 +1,7 @@
 #pragma once
 // Capsule Radar — build & user configuration.
 
-#define FW_VERSION "1.3.15"   // shown on the web config page + Stats screen; bump on release
+#define FW_VERSION "1.3.16"   // shown on the web config page + Stats screen; bump on release
 // Edit pins below: replace every -1 with the value from the Waveshare factory demo
 // (see docs/HARDWARE.md and docs/SETUP.md). Do NOT guess them.
 
@@ -9,6 +9,13 @@
 // Overridable at runtime via the captive portal (stored in NVS).
 #define HOME_LAT_DEFAULT   38.8409
 #define HOME_LON_DEFAULT    0.1059
+
+// ---------- Radar look ----------
+// Monochrome "real radar" mode: draw every aircraft in ONE phosphor green instead of
+// the altitude/type colour scheme. Set RADAR_MONOCHROME 0 to restore the full colours
+// (the original colour code is kept intact in radar_view.cpp — nothing is deleted).
+#define RADAR_MONOCHROME    1              // 1 = single-green scope; 0 = full colour
+#define RADAR_MONO_HEX      0x33FF33       // the one green used when monochrome
 
 // ---------- Radar ----------
 #define RANGE_KM_DEFAULT    30.0f          // display range (outer ring). Query is wider, see ADSB_QUERY_KM

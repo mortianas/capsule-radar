@@ -538,6 +538,10 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
     // Military aircraft are always red regardless of shape
     if (ac.military) col = lv_color_hex(0xFF5A3C);
 
+#if RADAR_MONOCHROME
+    col = lv_color_hex(RADAR_MONO_HEX);   // real-radar look: one green for every glyph
+#endif
+
     lv_draw_rect_dsc_t g;
     lv_draw_rect_dsc_init(&g);
     g.bg_color = col; g.bg_opa = LV_OPA_COVER;
@@ -1056,6 +1060,9 @@ void update(const std::vector<Aircraft> &aircraft, const RadarSettings &s) {
         d.inRange = p.inRange;
         d.track = ac.track;
         d.color = alt_color(ac.altBaro, ac.onGround);
+#if RADAR_MONOCHROME
+        d.color = lv_color_hex(RADAR_MONO_HEX);   // one green for trails/vectors/leader too
+#endif
         d.emergency = acIsEmergency(ac.squawk);
         d.military  = ac.military;
         d.rare      = (rare_type_name(ac.type.c_str()) != nullptr);

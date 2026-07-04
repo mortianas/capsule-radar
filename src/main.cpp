@@ -252,7 +252,7 @@ static void loadSettings() {
     g_quietHours       = p.getBool("quiet", false);
     g_proximityKm      = p.getFloat("proxkm", 0.0f);
     g_useGps           = p.getBool("usegps", false);
-    g_trailLen         = p.getInt("traillen", 2);
+    g_trailLen         = p.getInt("traillen", 0);   // trails OFF by default (they ate scarce RAM -> reboots)
     g_idleDimMs        = p.getUInt("idledim", IDLE_DIM_MS);
     g_units            = p.getInt("units", 0);
     g_bootPhoto        = p.getBool("bootphoto", true);
