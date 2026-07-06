@@ -40,17 +40,23 @@ bool AdsbClient::poll(std::vector<Aircraft>& out) {
 bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
     const double nm = _rangeKm * 0.539957;            // km -> nautical miles (API radius unit)
     char url[160];
-    snprintf(url, sizeof(url), "https://%s/v2/point/%.4f/%.4f/%.0f", host, _lat, _lon, nm);
 
-    // ONE shared TLS client for BOTH hosts (was: one persistent client per host).
-    // Diagnosis (serial [diag] probes during a wedge): raw TCP to a fixed IP and DNS
-    // both succeed, only the TLS *handshake* to the feed hosts fails — i.e. a fresh
-    // handshake can't get a big enough *contiguous* block of internal RAM. Each live
-    // WiFiClientSecure holds a ~16 KB mbedTLS input buffer; keeping two around (primary
-    // + fallback) during a host flap left too little contiguous RAM for a third, fresh
-    // handshake, so every poll failed until the self-heal reboot. With a single client,
-    // at most one 16 KB buffer is ever live, leaving headroom for the handshake. On a
-    // host switch we stop() first to free the previous host's TLS context.
+#if USE_RELAY
+    // Fetch from the LOCAL relay over PLAIN HTTP. The relay (a Pi/server) does the TLS to
+    // the cloud and re-serves plain HTTP, so the board never touches mbedTLS -> the whole
+    // TLS-handshake-contiguous-RAM wedge (the reboot cause) simply cannot happen. The relay
+    // auto-scales to the radius in the path, so behaviour is otherwise identical.
+    (void)host;
+    snprintf(url, sizeof(url), "http://%s:%d/v2/point/%.4f/%.4f/%.0f",
+             RELAY_HOST, RELAY_PORT, _lat, _lon, nm);
+    static WiFiClient client;   // plain TCP — no encryption, no 16 KB mbedTLS buffers
+#else
+    snprintf(url, sizeof(url), "https://%s/v2/point/%.4f/%.4f/%.0f", host, _lat, _lon, nm);
+    // ONE shared TLS client for BOTH hosts. A fresh mbedTLS handshake needs a ~16 KB
+    // *contiguous* block of internal RAM; keeping two clients live left too little for a
+    // third fresh handshake -> every poll failed until the self-heal reboot. One client +
+    // stop() on host switch keeps at most one 16 KB buffer live. (Still only a mitigation;
+    // USE_RELAY above removes the problem entirely.)
     static WiFiClientSecure client;
     static const char* lastHost = nullptr;
     static bool initDone = false;
@@ -64,6 +70,7 @@ bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
         client.stop();          // switching host: free the old TLS context before the new handshake
         lastHost = host;
     }
+#endif
 
     HTTPClient http;
     http.setReuse(true);             // keep the TCP+TLS connection alive between polls

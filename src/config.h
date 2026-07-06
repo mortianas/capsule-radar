@@ -1,7 +1,7 @@
 #pragma once
 // Capsule Radar — build & user configuration.
 
-#define FW_VERSION "1.3.17"   // shown on the web config page + Stats screen; bump on release
+#define FW_VERSION "1.3.18"   // shown on the web config page + Stats screen; bump on release
 // Edit pins below: replace every -1 with the value from the Waveshare factory demo
 // (see docs/HARDWARE.md and docs/SETUP.md). Do NOT guess them.
 
@@ -40,6 +40,16 @@ static const float RANGE_STEPS_KM[] = {10.0f, 20.0f, 30.0f, 50.0f, 100.0f};
 #define TZ_STR              "CET-1CEST,M3.5.0,M10.5.0/3"  // POSIX TZ (Spain) for local time/date
 #define BRIGHTNESS_IDLE     25             // dimmed after no touch for IDLE_DIM_MS
 #define IDLE_DIM_MS         20000          // dim the screen after this long without a touch
+
+// ---------- Feed source ----------
+// USE_RELAY: fetch the feed from a LOCAL relay over PLAIN HTTP instead of the encrypted
+// cloud directly. The relay (Pi/server) does the TLS handshake and re-serves plain HTTP,
+// so the board never runs mbedTLS -> completely eliminates the TLS-handshake-memory reboot.
+// Same readsb JSON format, so parsing is unchanged. Set USE_RELAY 0 to go back to the
+// direct encrypted cloud feed (api.airplanes.live).
+#define USE_RELAY           1
+#define RELAY_HOST          "192.168.1.76"   // the Pi 5 running the capsule-relay container
+#define RELAY_PORT          8090
 
 // ---------- ADS-B API (free, non-commercial) ----------
 #define ADSB_PRIMARY_HOST   "api.airplanes.live"   // GET /v2/point/{lat}/{lon}/{radius_nm}
