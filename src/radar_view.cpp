@@ -495,6 +495,38 @@ static int type_to_shape(const char *t) {
         "RJ1","RJ7","RJ8","RJ9","B38","B39", nullptr };
     for (int i = 0; nbTypes[i]; ++i)
         if (strncmp(t, nbTypes[i], strlen(nbTypes[i])) == 0) return 3;
+    // ── MILITARY FAST JETS (delta wing icon) ───────────────────────────────
+    static const char* milFast[] = {
+        "EUFI","F35","F35B","F35C","F22","F15","F16","TOR","TORNA",
+        "HAWK","JAGR","HUNT","MG29","SU27","TSR2","METE","VAMP","MG15",
+        "MG17","MG21","BUCC","VULC", nullptr };
+    for (int i = 0; milFast[i]; ++i)
+        if (strncmp(t, milFast[i], strlen(milFast[i])) == 0) return 6;
+    // ── MILITARY HEAVY TRANSPORTS (wide-body icon) ─────────────────────────
+    static const char* milHeavy[] = {
+        "C17","C130","C30J","C5","C5M","A400","B52","E4","IL76",
+        "AN12","AN22","AN24","AN26","AN28", nullptr };
+    for (int i = 0; milHeavy[i]; ++i)
+        if (strncmp(t, milHeavy[i], strlen(milHeavy[i])) == 0) return 4;
+    // ── MILITARY TACTICAL TRANSPORTS (narrow-body icon) ─────────────────────
+    static const char* milTac[] = {
+        "C295","CN35","C27J","C212","C2","C560","C560","C680","C750",
+        "E110","E120","F27","F50", nullptr };
+    for (int i = 0; milTac[i]; ++i)
+        if (strncmp(t, milTac[i], strlen(milTac[i])) == 0) return 3;
+    // ── MILITARY HELICOPTERS (heli icon, forced red by military flag) ───────
+    static const char* milHeli[] = {
+        "LYNX","MRLN","WCAT","NH90","NH9","EH101","EH1","AW139","A139",
+        "AW169","A169","AW189","A189","H64","H47","H60","H53","CH47",
+        "W3","PZL","PUMA", nullptr };
+    for (int i = 0; milHeli[i]; ++i)
+        if (strncmp(t, milHeli[i], strlen(milHeli[i])) == 0) return 5;
+    // ── AWACS / SPECIAL MISSION (new radar-dome icon) ───────────────────────
+    static const char* awacsTypes[] = {
+        "E3CF","E3TF","E3","RC35","P8","E7","E7A","R135","U2",
+        "SENT","WEDG","POSE","RIVJ", nullptr };
+    for (int i = 0; awacsTypes[i]; ++i)
+        if (strncmp(t, awacsTypes[i], strlen(awacsTypes[i])) == 0) return 8;
     return -1;
 }
 
@@ -524,7 +556,7 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
     // Shape indices:
     // 0=generic swept-wing fallback  1=light GA (high-wing)  2=turboprop
     // 3=narrow-body jet  4=wide-body jet  5=helicopter
-    // 6=military delta   7=business jet
+    // 6=military delta   7=business jet  8=AWACS / special mission
     int shape = 0;
     lv_color_t col = ac.color;
     const char *cat = ac.category;
@@ -540,6 +572,7 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
             else if (ts == 2) col = lv_color_hex(0xC8FF3C);   // turboprop: lime
             else if (ts == 3) col = lv_color_hex(0xEAFFF3);   // narrow-body: white
             else if (ts == 4) col = lv_color_hex(0xEAFFF3);   // wide-body: white
+            else if (ts == 8) col = lv_color_hex(0xEAFFF3);   // AWACS: white
             else              col = lv_color_hex(0x3CE0FF);   // GA: cyan
         } else if (cat[0] == 'A') {
             const int n = (cat[1] >= '1' && cat[1] <= '9') ? (cat[1]-'0') : 0;
@@ -684,6 +717,35 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
         lv_point_t pa = rot_pt(-7,-11, deg, ox, oy), pb = rot_pt(7,-11, deg, ox, oy);
         safe_line(d, &ln, &ta, &tb);
         safe_line(d, &ln, &pa, &pb);
+        return;
+    }
+
+    // ── AWACS / SPECIAL MISSION (E-3, E-7, P-8, RC-135) ────────────────────
+    // Wide-body fuselage with a small radar dome circle on top — unmistakable silhouette.
+    if (shape == 8) {
+        lv_point_t fuse[4] = {
+            rot_pt( 0,-12, deg, ox, oy), rot_pt( 2,  9, deg, ox, oy),
+            rot_pt( 0, 11, deg, ox, oy), rot_pt(-2,  9, deg, ox, oy),
+        };
+        safe_poly(d, &g, fuse, 4);
+        // Swept wings
+        lv_point_t rwing[3] = {
+            rot_pt(0, -1, deg, ox, oy), rot_pt(14,  7, deg, ox, oy), rot_pt(0, 3, deg, ox, oy),
+        };
+        lv_point_t lwing[3] = {
+            rot_pt(0, -1, deg, ox, oy), rot_pt(-14, 7, deg, ox, oy), rot_pt(0, 3, deg, ox, oy),
+        };
+        safe_poly(d, &g, rwing, 3);
+        safe_poly(d, &g, lwing, 3);
+        // Radar dome
+        lv_draw_arc_dsc_t dome;
+        lv_draw_arc_dsc_init(&dome);
+        dome.color = col; dome.width = 2; dome.opa = LV_OPA_COVER;
+        lv_point_t domeC = rot_pt(0, -10, deg, ox, oy);
+        lv_draw_arc(d, &dome, &domeC, 5, 0, 360);
+        ln.width = 2;
+        lv_point_t ta = rot_pt(-4, 9, deg, ox, oy), tb = rot_pt(4, 9, deg, ox, oy);
+        safe_line(d, &ln, &ta, &tb);
         return;
     }
 

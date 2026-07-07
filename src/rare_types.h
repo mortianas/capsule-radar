@@ -54,8 +54,13 @@ static const RareType RARE_TYPES[] = {
     { "F35",  "F-35 Lightning II" },
     { "F35B", "F-35B Lightning II" },
     { "F35C", "F-35C Lightning II" },
-    { "HAWK", "Hawk T1/T2 (Red Arrows)" },
+    { "F15",  "F-15 Eagle" },
+    { "F16",  "F-16 Fighting Falcon" },
+    { "F22",  "F-22 Raptor" },
+    { "JAGR", "SEPECAT Jaguar" },
+    { "TOR",  "Tornado" },
     { "TORNA","Tornado" },
+    { "HAWK", "Hawk T1/T2 (Red Arrows)" },
 
     // ── MODERN UK / NATO SPECIAL MISSION ────────────────────────────────────
     { "E3CF", "E-3D Sentry AWACS (RAF)" },
@@ -78,6 +83,11 @@ static const RareType RARE_TYPES[] = {
     { "LYNX", "Westland Lynx" },
     { "MRLN", "Merlin HC3" },
     { "WCAT", "Wildcat AH1" },
+    { "NH90", "NH90" },
+    { "EH101","Merlin / EH101" },
+    { "AW139","AW139" },
+    { "H64",  "Black Hawk" },
+    { "H53",  "Sea Stallion" },
 
     // ── US STRATEGIC / RARE ──────────────────────────────────────────────────
     { "B52",  "B-52 Stratofortress" },
