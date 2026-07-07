@@ -502,6 +502,25 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
     const float deg = (ac.track != ac.track) ? 0.0f : ac.track;
     const lv_coord_t ox = ac.pos.x, oy = ac.pos.y;
 
+    // Ground target: bright white diamond with black outline so it pops on black.
+    if (ac.onGround) {
+        lv_draw_rect_dsc_t gnd;
+        lv_draw_rect_dsc_init(&gnd);
+        gnd.bg_color   = lv_color_white();
+        gnd.bg_opa     = LV_OPA_COVER;
+        gnd.border_color = lv_color_black();
+        gnd.border_width = 1;
+        gnd.border_opa   = LV_OPA_COVER;
+        lv_point_t diamond[4] = {
+            rot_pt(0, -7, deg, ox, oy),
+            rot_pt(7,  0, deg, ox, oy),
+            rot_pt(0,  7, deg, ox, oy),
+            rot_pt(-7, 0, deg, ox, oy)
+        };
+        safe_poly(d, &gnd, diamond, 4);
+        return;
+    }
+
     // Shape indices:
     // 0=generic swept-wing fallback  1=light GA (high-wing)  2=turboprop
     // 3=narrow-body jet  4=wide-body jet  5=helicopter
@@ -800,8 +819,9 @@ static void ac_draw_cb(lv_event_t *e) {
             }
         }
 
-        // floating labels (phosphor only; orb keeps clean balls + the tap card)
-        if (!drg) {
+        // floating labels (phosphor only; orb keeps clean balls + the tap card).
+        // Ground aircraft: skip the label to reduce clutter on the tiny screen.
+        if (!drg && !ac.onGround) {
             lv_draw_label_dsc_t lc;
             lv_draw_label_dsc_init(&lc);
             lc.font = &lv_font_montserrat_14;
