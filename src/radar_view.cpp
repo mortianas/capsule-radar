@@ -672,6 +672,12 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
         };
         safe_poly(d, &g, rwing, 3);
         safe_poly(d, &g, lwing, 3);
+        // Sleek cockpit window line
+        lv_draw_arc_dsc_t win;
+        lv_draw_arc_dsc_init(&win);
+        win.color = col; win.width = 1; win.opa = 180;
+        lv_point_t wc = rot_pt(0, -11, deg, ox, oy);
+        lv_draw_arc(d, &win, &wc, 3, 200, 340);
         ln.width = 2;
         lv_point_t ta = rot_pt(-3,10, deg, ox, oy), tb = rot_pt(3,10, deg, ox, oy);
         safe_line(d, &ln, &ta, &tb);
@@ -685,13 +691,20 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
             rot_pt( 0,  9, deg, ox, oy), rot_pt(-2,  7, deg, ox, oy),
         };
         safe_poly(d, &g, fuse, 4);
-        // Straight high wing: one convex rectangle
-        lv_point_t wing[4] = {
+        // Straight high wing with rounded tips
+        lv_point_t wing[6] = {
             rot_pt(-11,-3, deg, ox, oy), rot_pt( 11,-3, deg, ox, oy),
-            rot_pt( 11, 0, deg, ox, oy), rot_pt(-11, 0, deg, ox, oy),
+            rot_pt( 12,-2, deg, ox, oy), rot_pt( 11, 0, deg, ox, oy),
+            rot_pt(-11, 0, deg, ox, oy), rot_pt(-12,-2, deg, ox, oy),
         };
-        safe_poly(d, &g, wing, 4);
-        ln.width = 2;
+        safe_poly(d, &g, wing, 6);
+        // Wing struts (classic high-wing look)
+        ln.width = 1; ln.opa = 140;
+        lv_point_t s1a = rot_pt(-4, 0, deg, ox, oy), s1b = rot_pt(-7,-3, deg, ox, oy);
+        lv_point_t s2a = rot_pt( 4, 0, deg, ox, oy), s2b = rot_pt( 7,-3, deg, ox, oy);
+        safe_line(d, &ln, &s1a, &s1b);
+        safe_line(d, &ln, &s2a, &s2b);
+        ln.width = 2; ln.opa = LV_OPA_COVER;
         lv_point_t ta = rot_pt(-5, 7, deg, ox, oy), tb = rot_pt(5, 7, deg, ox, oy);
         lv_point_t pa = rot_pt(-5,-10, deg, ox, oy), pb = rot_pt(5,-10, deg, ox, oy);
         safe_line(d, &ln, &ta, &tb);
@@ -706,12 +719,22 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
             rot_pt( 0, 10, deg, ox, oy), rot_pt(-2,  8, deg, ox, oy),
         };
         safe_poly(d, &g, fuse, 4);
-        // Wide straight wing: convex rectangle
-        lv_point_t wing[4] = {
+        // Wide straight wing with engine nacelle bumps
+        lv_point_t wing[6] = {
             rot_pt(-14,-2, deg, ox, oy), rot_pt( 14,-2, deg, ox, oy),
-            rot_pt( 14, 2, deg, ox, oy), rot_pt(-14, 2, deg, ox, oy),
+            rot_pt( 15, 0, deg, ox, oy), rot_pt( 14, 2, deg, ox, oy),
+            rot_pt(-14, 2, deg, ox, oy), rot_pt(-15, 0, deg, ox, oy),
         };
-        safe_poly(d, &g, wing, 4);
+        safe_poly(d, &g, wing, 6);
+        // Propeller dots (two small circles on the wing — unmistakable turboprop cue)
+        lv_draw_rect_dsc_t prop; lv_draw_rect_dsc_init(&prop);
+        prop.bg_color = col; prop.bg_opa = LV_OPA_COVER; prop.radius = LV_RADIUS_CIRCLE;
+        lv_point_t p1 = rot_pt(-11, 0, deg, ox, oy);
+        lv_point_t p2 = rot_pt( 11, 0, deg, ox, oy);
+        lv_area_t pa1 = { (lv_coord_t)(p1.x-2),(lv_coord_t)(p1.y-2),(lv_coord_t)(p1.x+2),(lv_coord_t)(p1.y+2) };
+        lv_area_t pa2 = { (lv_coord_t)(p2.x-2),(lv_coord_t)(p2.y-2),(lv_coord_t)(p2.x+2),(lv_coord_t)(p2.y+2) };
+        lv_draw_rect(d, &prop, &pa1);
+        lv_draw_rect(d, &prop, &pa2);
         ln.width = 2;
         lv_point_t ta = rot_pt(-6, 8, deg, ox, oy), tb = rot_pt(6, 8, deg, ox, oy);
         lv_point_t pa = rot_pt(-7,-11, deg, ox, oy), pb = rot_pt(7,-11, deg, ox, oy);
@@ -765,6 +788,12 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
         };
         safe_poly(d, &g, rwing, 3);
         safe_poly(d, &g, lwing, 3);
+        // Cockpit windows (thin arc across the nose)
+        lv_draw_arc_dsc_t win;
+        lv_draw_arc_dsc_init(&win);
+        win.color = col; win.width = 1; win.opa = 180;
+        lv_point_t wc = rot_pt(0, -9, deg, ox, oy);
+        lv_draw_arc(d, &win, &wc, 4, 200, 340);
         ln.width = 2;
         lv_point_t ta = rot_pt(-4, 9, deg, ox, oy), tb = rot_pt(4, 9, deg, ox, oy);
         safe_line(d, &ln, &ta, &tb);
@@ -787,6 +816,12 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
         };
         safe_poly(d, &g, rwing, 3);
         safe_poly(d, &g, lwing, 3);
+        // Cockpit windows (wider arc for the broad nose)
+        lv_draw_arc_dsc_t win;
+        lv_draw_arc_dsc_init(&win);
+        win.color = col; win.width = 1; win.opa = 180;
+        lv_point_t wc = rot_pt(0, -10, deg, ox, oy);
+        lv_draw_arc(d, &win, &wc, 5, 200, 340);
         ln.width = 3;
         lv_point_t ta = rot_pt(-6,10, deg, ox, oy), tb = rot_pt(6,10, deg, ox, oy);
         safe_line(d, &ln, &ta, &tb);
@@ -808,6 +843,12 @@ static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
         };
         safe_poly(d, &g, rwing, 3);
         safe_poly(d, &g, lwing, 3);
+        // Small cockpit window arc
+        lv_draw_arc_dsc_t win;
+        lv_draw_arc_dsc_init(&win);
+        win.color = col; win.width = 1; win.opa = 160;
+        lv_point_t wc = rot_pt(0, -8, deg, ox, oy);
+        lv_draw_arc(d, &win, &wc, 3, 200, 340);
         ln.width = 2;
         lv_point_t ta = rot_pt(-3, 8, deg, ox, oy), tb = rot_pt(3, 8, deg, ox, oy);
         safe_line(d, &ln, &ta, &tb);
