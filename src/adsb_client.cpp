@@ -125,7 +125,7 @@ bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
         ac.lat    = a["lat"].as<double>();
         ac.lon    = a["lon"].as<double>();
 
-        if (a["alt_baro"].is<const char*>()) { ac.onGround = true; ac.altBaro = 0; }  // "ground"
+        if (a["alt_baro"].is<const char*>()) { ac.onGround = true; ac.altBaro = 0; continue; }  // skip ground aircraft
         else                                  ac.altBaro = a["alt_baro"] | 0.0f;
 
         ac.track    = a["track"].is<float>() ? a["track"].as<float>() : (a["true_heading"] | NAN);
