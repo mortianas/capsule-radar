@@ -1069,6 +1069,12 @@ void setup() {
 
 void loop() {
     display::loop();                // drive LVGL (render dirty areas + run timers)
+    // Serial debug: 'm' = force military alert sound, 'n' = new aircraft ping
+    if (Serial.available()) {
+        char c = Serial.read();
+        if (c == 'm') audio_play(AUDIO_MILITARY);
+        else if (c == 'n') audio_play(AUDIO_NEW);
+    }
     g_wm.process();                 // service the WiFi config portal (non-blocking)
     g_web.handleClient();           // serve the configuration web page
     if (g_useGps) gps_poll();       // pull NMEA from the LC76G (only when GPS auto-location is on)
