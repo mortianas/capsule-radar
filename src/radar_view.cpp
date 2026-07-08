@@ -934,7 +934,7 @@ static void ac_draw_cb(lv_event_t *e) {
             lc.color = s_cInk;
             lv_area_t a1 = { (lv_coord_t)(ac.pos.x + 12), (lv_coord_t)(ac.pos.y - 14),
                              (lv_coord_t)(ac.pos.x + 142), (lv_coord_t)(ac.pos.y + 2) };
-            if (ac.call[0]) lv_draw_label(d, &lc, &a1, ac.call, NULL);
+            if (ac.military && ac.call[0]) lv_draw_label(d, &lc, &a1, ac.call, NULL);
             lv_draw_label_dsc_t la;
             lv_draw_label_dsc_init(&la);
             la.font = &lv_font_montserrat_12;
