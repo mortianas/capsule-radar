@@ -202,22 +202,22 @@ static void play_cue(int cue) {
             delay(80);
         }
     } else if (cue == AUDIO_MILITARY) {
-        // F/A-18 AN/ALR-67 RWR missile-launch warning: rapid frantic alternating tones
-        // ~950 Hz / 1450 Hz, 25 ms per tone, 7 pairs — urgent and mechanical
-        for (int k = 0; k < 7; ++k) {
+        // F/A-18 AN/ALR-67 RWR target-lock tone: smooth 1000↔1250 Hz warble
+        // ~90 ms per step, 6 repeats = "deedle-deedle-deedle" — lower, calmer than missile warn
+        for (int k = 0; k < 6; ++k) {
             size_t ns;
-            ns = gen_beep(buf, S_BUF_LEN, 950.0f,  25, amp);
+            ns = gen_beep(buf, S_BUF_LEN, 1000.0f, 90, amp);
             i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
-            ns = gen_beep(buf, S_BUF_LEN, 1450.0f, 25, amp);
+            ns = gen_beep(buf, S_BUF_LEN, 1250.0f, 90, amp);
             i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
         }
-        delay(120);
-        // second burst — RWR repeats the warning
-        for (int k = 0; k < 7; ++k) {
+        delay(180);
+        // second burst — RWR repeats the lock tone
+        for (int k = 0; k < 6; ++k) {
             size_t ns;
-            ns = gen_beep(buf, S_BUF_LEN, 950.0f,  25, amp);
+            ns = gen_beep(buf, S_BUF_LEN, 1000.0f, 90, amp);
             i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
-            ns = gen_beep(buf, S_BUF_LEN, 1450.0f, 25, amp);
+            ns = gen_beep(buf, S_BUF_LEN, 1250.0f, 90, amp);
             i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
         }
     } else if (cue == AUDIO_RARE) {
