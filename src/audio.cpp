@@ -203,21 +203,13 @@ static void play_cue(int cue) {
         }
     } else if (cue == AUDIO_MILITARY) {
         // F/A-18 AN/ALR-67 RWR target-lock tone: smooth 1000↔1250 Hz warble
-        // ~90 ms per step, 6 repeats = "deedle-deedle-deedle" — lower, calmer than missile warn
-        for (int k = 0; k < 6; ++k) {
+        // 1 burst, 4 repeats, ~65 % volume — short enough not to wake the house
+        const float mamp = amp * 0.65f;
+        for (int k = 0; k < 4; ++k) {
             size_t ns;
-            ns = gen_beep(buf, S_BUF_LEN, 1000.0f, 90, amp);
+            ns = gen_beep(buf, S_BUF_LEN, 1000.0f, 90, mamp);
             i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
-            ns = gen_beep(buf, S_BUF_LEN, 1250.0f, 90, amp);
-            i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
-        }
-        delay(180);
-        // second burst — RWR repeats the lock tone
-        for (int k = 0; k < 6; ++k) {
-            size_t ns;
-            ns = gen_beep(buf, S_BUF_LEN, 1000.0f, 90, amp);
-            i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
-            ns = gen_beep(buf, S_BUF_LEN, 1250.0f, 90, amp);
+            ns = gen_beep(buf, S_BUF_LEN, 1250.0f, 90, mamp);
             i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
         }
     } else if (cue == AUDIO_RARE) {

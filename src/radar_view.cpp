@@ -932,6 +932,7 @@ static void ac_draw_cb(lv_event_t *e) {
             lv_draw_label_dsc_init(&lc);
             lc.font = &lv_font_montserrat_14;
             lc.color = s_cInk;
+            lc.opa = 170;   // ~67 % opacity — dimmer, less "in your face"
             lv_area_t a1 = { (lv_coord_t)(ac.pos.x + 12), (lv_coord_t)(ac.pos.y - 14),
                              (lv_coord_t)(ac.pos.x + 142), (lv_coord_t)(ac.pos.y + 2) };
             if (ac.military && ac.call[0]) lv_draw_label(d, &lc, &a1, ac.call, NULL);
@@ -939,6 +940,7 @@ static void ac_draw_cb(lv_event_t *e) {
             lv_draw_label_dsc_init(&la);
             la.font = &lv_font_montserrat_12;
             la.color = ac.color;
+            la.opa = 170;
             lv_area_t a2 = { a1.x1, (lv_coord_t)(ac.pos.y + 2), a1.x2, (lv_coord_t)(ac.pos.y + 20) };
             if (ac.altTxt[0]) lv_draw_label(d, &la, &a2, ac.altTxt, NULL);
         }
