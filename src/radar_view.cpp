@@ -505,7 +505,10 @@ static int type_to_shape(const char *t) {
     // ── MILITARY HEAVY TRANSPORTS (wide-body icon) ─────────────────────────
     static const char* milHeavy[] = {
         "C17","C130","C30J","C5","C5M","A400","B52","E4","IL76",
-        "AN12","AN22","AN24","AN26","AN28", nullptr };
+        "AN12","AN22","AN24","AN26","AN28",
+        "K35R","K35T","K35A",  // KC-135 Stratotanker family
+        "KDC10","DC10",          // KC-10 Extender / tanker variants
+        nullptr };
     for (int i = 0; milHeavy[i]; ++i)
         if (strncmp(t, milHeavy[i], strlen(milHeavy[i])) == 0) return 4;
     // ── MILITARY TACTICAL TRANSPORTS (narrow-body icon) ─────────────────────
