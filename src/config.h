@@ -16,7 +16,7 @@
 // (the original colour code is kept intact in radar_view.cpp — nothing is deleted).
 #define RADAR_MONOCHROME    0              // 1 = single-green scope; 0 = full colour (planes by altitude)
 #define RADAR_MONO_HEX      0x33FF33       // the one green used when monochrome
-#define ICON_SCALE          1.1f           // plane-glyph size multiplier (1.0 = original). Bigger = larger icons.
+#define ICON_SCALE          1.2f           // plane-glyph size multiplier (1.0 = original). Bigger = larger icons.
 
 // ---------- Radar ----------
 #define RANGE_KM_DEFAULT    30.0f          // display range (outer ring). Query is wider, see ADSB_QUERY_KM
