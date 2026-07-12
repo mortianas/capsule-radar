@@ -151,13 +151,20 @@ static inline lv_point_t rim_point(float bearingDeg, float r) {
 }
 
 // rotate the local point (px,py) by `deg` (clockwise, screen coords) and offset to (ox,oy)
-static inline lv_point_t rot_pt(float px, float py, float deg, lv_coord_t ox, lv_coord_t oy) {
+// Raw rotate + translate, no scaling — used by fixed-size UI markers
+// (the centre "you are here" triangle and the off-screen bearing arrow).
+static inline lv_point_t rot_pt_raw(float px, float py, float deg, lv_coord_t ox, lv_coord_t oy) {
     const float a = deg * (float)M_PI / 180.0f;
     const float c = cosf(a), s = sinf(a);
     lv_point_t p;
     p.x = (lv_coord_t)(ox + (lv_coord_t)lroundf(px * c - py * s));
     p.y = (lv_coord_t)(oy + (lv_coord_t)lroundf(px * s + py * c));
     return p;
+}
+// Aircraft-glyph rotate + translate: multiplies the local offsets by ICON_SCALE
+// so every plane icon scales uniformly about its own centre. Tune in config.h.
+static inline lv_point_t rot_pt(float px, float py, float deg, lv_coord_t ox, lv_coord_t oy) {
+    return rot_pt_raw(px * ICON_SCALE, py * ICON_SCALE, deg, ox, oy);
 }
 
 // =============================== flow map ====================================
@@ -199,9 +206,9 @@ static void grid_draw_cb(lv_event_t *e) {
             lv_draw_line(d, &gl, &p1, &p2);
         }
         // center "you are here" triangle (orange, pointing up)
-        lv_point_t tri[3] = { rot_pt(0, -11, 0, s_cx, s_cy),
-                              rot_pt(10, 8, 0, s_cx, s_cy),
-                              rot_pt(-10, 8, 0, s_cx, s_cy) };
+        lv_point_t tri[3] = { rot_pt_raw(0, -11, 0, s_cx, s_cy),
+                              rot_pt_raw(10, 8, 0, s_cx, s_cy),
+                              rot_pt_raw(-10, 8, 0, s_cx, s_cy) };
         lv_draw_rect_dsc_t td;
         lv_draw_rect_dsc_init(&td);
         td.bg_color = ORB_ACCENT;
@@ -423,9 +430,9 @@ static void draw_offrange(lv_draw_ctx_t *d, const AcDraw &ac) {
     // small orange triangle just outside it, pointing toward the aircraft's bearing
     const lv_coord_t ox = (lv_coord_t)lroundf(ac.pos.x + 12.0f * sinf(ac.bearingDeg * (float)M_PI / 180.0f));
     const lv_coord_t oy = (lv_coord_t)lroundf(ac.pos.y - 12.0f * cosf(ac.bearingDeg * (float)M_PI / 180.0f));
-    lv_point_t tri[3] = { rot_pt(0, -7, ac.bearingDeg, ox, oy),
-                          rot_pt(5, 4, ac.bearingDeg, ox, oy),
-                          rot_pt(-5, 4, ac.bearingDeg, ox, oy) };
+    lv_point_t tri[3] = { rot_pt_raw(0, -7, ac.bearingDeg, ox, oy),
+                          rot_pt_raw(5, 4, ac.bearingDeg, ox, oy),
+                          rot_pt_raw(-5, 4, ac.bearingDeg, ox, oy) };
     lv_draw_rect_dsc_t td;
     lv_draw_rect_dsc_init(&td);
     td.bg_color = ORB_ACCENT;

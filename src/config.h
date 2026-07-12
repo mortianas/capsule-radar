@@ -1,7 +1,7 @@
 #pragma once
 // Capsule Radar — build & user configuration.
 
-#define FW_VERSION "1.3.18"   // shown on the web config page + Stats screen; bump on release
+#define FW_VERSION "1.3.19"   // shown on the web config page + Stats screen; bump on release
 // Edit pins below: replace every -1 with the value from the Waveshare factory demo
 // (see docs/HARDWARE.md and docs/SETUP.md). Do NOT guess them.
 
@@ -16,6 +16,7 @@
 // (the original colour code is kept intact in radar_view.cpp — nothing is deleted).
 #define RADAR_MONOCHROME    0              // 1 = single-green scope; 0 = full colour (planes by altitude)
 #define RADAR_MONO_HEX      0x33FF33       // the one green used when monochrome
+#define ICON_SCALE          1.5f           // plane-glyph size multiplier (1.0 = original). Bigger = larger icons.
 
 // ---------- Radar ----------
 #define RANGE_KM_DEFAULT    30.0f          // display range (outer ring). Query is wider, see ADSB_QUERY_KM
