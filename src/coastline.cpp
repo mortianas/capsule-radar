@@ -1,6 +1,7 @@
 #include "coastline.h"
 #include "coastline_data.h"
 #include "geo.h"
+#include "config.h"
 #include <vector>
 #include <math.h>
 
@@ -35,7 +36,7 @@ void coastline_project(double homeLat, double homeLon, double rangeKm,
             if (!out) {
                 const double dist = geo::haversineKm(homeLat, homeLon, lat, lon);
                 if (dist <= rangeKm * EDGE) {
-                    const double brg = geo::bearingDeg(homeLat, homeLon, lat, lon);
+                    const double brg = geo::bearingDeg(homeLat, homeLon, lat, lon) - RADAR_ROTATION_OFFSET;
                     const double rPx = (dist / rangeKm) * rOuterPx;
                     const double a   = brg * M_PI / 180.0;
                     lv_point_t sp;

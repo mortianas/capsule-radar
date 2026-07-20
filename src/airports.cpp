@@ -1,6 +1,7 @@
 #include "airports.h"
 #include "airports_data.h"
 #include "geo.h"
+#include "config.h"
 #include <vector>
 #include <math.h>
 #include <string.h>
@@ -26,7 +27,7 @@ void airports_project(double homeLat, double homeLon, double rangeKm,
         if (fabs(dlon) > lonMargin && fabs(fabs(dlon) - 360.0) > lonMargin) continue;
         const double dist = geo::haversineKm(homeLat, homeLon, lat, lon);
         if (dist > rangeKm) continue;                                       // only inside the scope
-        const double brg = geo::bearingDeg(homeLat, homeLon, lat, lon);
+        const double brg = geo::bearingDeg(homeLat, homeLon, lat, lon) - RADAR_ROTATION_OFFSET;
         const double rPx = (dist / rangeKm) * rOuterPx;
         const double a   = brg * M_PI / 180.0;
         Apt ap;

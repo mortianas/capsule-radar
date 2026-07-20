@@ -143,7 +143,7 @@ static lv_color_t alt_color(float altFt, bool onGround) {
 }
 
 static inline lv_point_t rim_point(float bearingDeg, float r) {
-    const float a = bearingDeg * (float)M_PI / 180.0f;
+    const float a = (bearingDeg - RADAR_ROTATION_OFFSET) * (float)M_PI / 180.0f;
     lv_point_t p;
     p.x = (lv_coord_t)lroundf((float)s_cx + r * sinf(a));
     p.y = (lv_coord_t)lroundf((float)s_cy - r * cosf(a));
@@ -428,11 +428,12 @@ static void draw_offrange(lv_draw_ctx_t *d, const AcDraw &ac) {
     lv_draw_rect(d, &b, &r);
 
     // small orange triangle just outside it, pointing toward the aircraft's bearing
-    const lv_coord_t ox = (lv_coord_t)lroundf(ac.pos.x + 12.0f * sinf(ac.bearingDeg * (float)M_PI / 180.0f));
-    const lv_coord_t oy = (lv_coord_t)lroundf(ac.pos.y - 12.0f * cosf(ac.bearingDeg * (float)M_PI / 180.0f));
-    lv_point_t tri[3] = { rot_pt_raw(0, -7, ac.bearingDeg, ox, oy),
-                          rot_pt_raw(5, 4, ac.bearingDeg, ox, oy),
-                          rot_pt_raw(-5, 4, ac.bearingDeg, ox, oy) };
+    const float visBrg = ac.bearingDeg - RADAR_ROTATION_OFFSET;
+    const lv_coord_t ox = (lv_coord_t)lroundf(ac.pos.x + 12.0f * sinf(visBrg * (float)M_PI / 180.0f));
+    const lv_coord_t oy = (lv_coord_t)lroundf(ac.pos.y - 12.0f * cosf(visBrg * (float)M_PI / 180.0f));
+    lv_point_t tri[3] = { rot_pt_raw(0, -7, visBrg, ox, oy),
+                          rot_pt_raw(5, 4, visBrg, ox, oy),
+                          rot_pt_raw(-5, 4, visBrg, ox, oy) };
     lv_draw_rect_dsc_t td;
     lv_draw_rect_dsc_init(&td);
     td.bg_color = ORB_ACCENT;
@@ -541,7 +542,7 @@ static int type_to_shape(const char *t) {
 }
 
 static void draw_aircraft_icon(lv_draw_ctx_t *d, const AcDraw &ac) {
-    const float deg = (ac.track != ac.track) ? 0.0f : ac.track;
+    const float deg = (ac.track != ac.track) ? (0.0f - RADAR_ROTATION_OFFSET) : (ac.track - RADAR_ROTATION_OFFSET);
     const lv_coord_t ox = ac.pos.x, oy = ac.pos.y;
 
     // Ground target: bright white diamond with black outline so it pops on black.
@@ -888,7 +889,7 @@ static void ac_draw_cb(lv_event_t *e) {
             // Speed vector: thin line in heading direction for military and rare only.
             // Helps spot fast movers that need the camera out quickly.
             if ((ac.military || ac.rare) && ac.gsKt == ac.gsKt && ac.gsKt > 20.0f) {
-                const float deg = (ac.track != ac.track) ? 0.0f : ac.track;
+                const float deg = (ac.track != ac.track) ? (0.0f - RADAR_ROTATION_OFFSET) : (ac.track - RADAR_ROTATION_OFFSET);
                 const float len = fminf(ac.gsKt * 0.10f, 40.0f);  // 0.1 px/kt, cap 40px
                 lv_draw_line_dsc_t vl;
                 lv_draw_line_dsc_init(&vl);
@@ -1096,10 +1097,25 @@ void init(void *lv_parent) {
     s_sweep     = make_layer(parent, sweep_draw_cb);
     s_acLayer   = make_layer(parent, ac_draw_cb);
 
-    s_rose[0] = make_label(parent, "N", &lv_font_montserrat_28, COL_INK,  LV_ALIGN_TOP_MID,    0, 12);
-    s_rose[1] = make_label(parent, "S", &lv_font_montserrat_16, COL_SOFT, LV_ALIGN_BOTTOM_MID, 0, -12);
-    s_rose[2] = make_label(parent, "E", &lv_font_montserrat_16, COL_SOFT, LV_ALIGN_RIGHT_MID, -12, 0);
-    s_rose[3] = make_label(parent, "W", &lv_font_montserrat_16, COL_SOFT, LV_ALIGN_LEFT_MID,   12, 0);
+    // Compass rose labels placed around the outer ring, rotated by RADAR_ROTATION_OFFSET
+    {
+        const float     roseBrg[4] = {0.0f, 180.0f, 90.0f, 270.0f};
+        const char*     roseTxt[4] = {"N", "S", "E", "W"};
+        const lv_font_t*roseFont[4] = {&lv_font_montserrat_28, &lv_font_montserrat_16,
+                                        &lv_font_montserrat_16, &lv_font_montserrat_16};
+        const lv_color_t roseCol[4] = {COL_INK, COL_SOFT, COL_SOFT, COL_SOFT};
+        const float R = (float)RADAR_R_OUTER_PX;
+        for (int i = 0; i < 4; ++i) {
+            const float a = (roseBrg[i] - RADAR_ROTATION_OFFSET) * (float)M_PI / 180.0f;
+            const lv_coord_t lx = (lv_coord_t)lroundf((float)s_cx + (R + 18.0f) * sinf(a));
+            const lv_coord_t ly = (lv_coord_t)lroundf((float)s_cy - (R + 18.0f) * cosf(a));
+            s_rose[i] = lv_label_create(parent);
+            lv_label_set_text(s_rose[i], roseTxt[i]);
+            lv_obj_set_style_text_font(s_rose[i], roseFont[i], 0);
+            lv_obj_set_style_text_color(s_rose[i], roseCol[i], 0);
+            lv_obj_set_pos(s_rose[i], lx, ly);
+        }
+    }
 
     char rng[16];
     snprintf(rng, sizeof(rng), "%.0f km", (double)RANGE_KM_DEFAULT);
@@ -1171,7 +1187,7 @@ void update(const std::vector<Aircraft> &aircraft, const RadarSettings &s) {
     for (const Aircraft &ac : aircraft) {
         const double distKm = geo::haversineKm(s.homeLat, s.homeLon, ac.lat, ac.lon);
         const double brg = geo::bearingDeg(s.homeLat, s.homeLon, ac.lat, ac.lon);
-        const geo::Point p = geo::projectToScreen(distKm, brg, s.rangeKm, s_cx, s_cy, R, s.rotationDeg);
+        const geo::Point p = geo::projectToScreen(distKm, brg, s.rangeKm, s_cx, s_cy, R, RADAR_ROTATION_OFFSET);
 
         AcDraw d;
         lv_point_t target;

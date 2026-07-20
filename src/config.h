@@ -17,6 +17,7 @@
 #define RADAR_MONOCHROME    0              // 1 = single-green scope; 0 = full colour (planes by altitude)
 #define RADAR_MONO_HEX      0x33FF33       // the one green used when monochrome
 #define ICON_SCALE          1.2f           // plane-glyph size multiplier (1.0 = original). Bigger = larger icons.
+#define RADAR_ROTATION_OFFSET 44.0f        // degrees to rotate the scope so "up" points this way (0 = north-up)
 
 // ---------- Radar ----------
 #define RANGE_KM_DEFAULT    30.0f          // display range (outer ring). Query is wider, see ADSB_QUERY_KM
